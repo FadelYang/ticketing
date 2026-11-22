@@ -44,7 +44,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	exampleMod := example.NewModule(pool)
 	userMod := user.NewModule(pool)
 	authMod := auth.NewModule(pool, cfg.JWTSecret, cfg.JWTExpiresIn)
-	ticketMod := ticket.NewModule(pool, userMod.Usecase)
+	ticketMod := ticket.NewModule(pool, userMod.Usecase, cfg.JWTSecret)
 
 	// If a new module needs another module's usecase, pass it directly:
 	// orderMod := order.NewModule(pool, exampleMod.Usecase)
