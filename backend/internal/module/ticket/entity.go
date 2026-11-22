@@ -18,6 +18,7 @@ const (
 	StatusOpen       = "open"
 	StatusInProgress = "in_progress"
 	StatusResolved   = "resolved"
+	StatusClosed     = "closed"
 )
 
 func IsValidPriority(priority string) bool {
@@ -31,7 +32,7 @@ func IsValidPriority(priority string) bool {
 
 func IsValidStatus(status string) bool {
 	switch status {
-	case StatusOpen, StatusInProgress, StatusResolved:
+	case StatusOpen, StatusInProgress, StatusResolved, StatusClosed:
 		return true
 	default:
 		return false
@@ -83,6 +84,12 @@ type UpdateInput struct {
 	DeadlineAt  time.Time `json:"deadline_at"`
 }
 
+type PatchInput struct {
+	Priority   *string `json:"priority"`
+	Status     *string `json:"status"`
+	AssigneeID *string `json:"assignee_id"`
+}
+
 type UserFinder interface {
 	GetByID(ctx context.Context, id string) (*user.User, error)
 }
@@ -100,5 +107,6 @@ type Usecase interface {
 	GetByID(ctx context.Context, id string) (*Ticket, error)
 	List(ctx context.Context, filter Filter) ([]Ticket, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
+	Patch(ctx context.Context, id string, actorID string, actorRole string, input PatchInput) (*Ticket, error)
 	Delete(ctx context.Context, id string) error
 }
