@@ -11,6 +11,7 @@ import (
 	"monorepo/backend/internal/database"
 	"monorepo/backend/internal/module/example"
 	"monorepo/backend/internal/module/health"
+	"monorepo/backend/internal/module/user"
 	"monorepo/backend/internal/router"
 )
 
@@ -21,6 +22,7 @@ type Container struct {
 
 	Health  *health.Module
 	Example *example.Module
+	User    *user.Module
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -36,6 +38,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 
 	healthMod := health.NewModule(pool)
 	exampleMod := example.NewModule(pool)
+	userMod := user.NewModule(pool)
 
 	// If a new module needs another module's usecase, pass it directly:
 	// orderMod := order.NewModule(pool, exampleMod.Usecase)
@@ -44,6 +47,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		cfg,
 		healthMod,
 		exampleMod,
+		userMod,
 	)
 
 	return &Container{
@@ -52,6 +56,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		Fiber:   fiberApp,
 		Health:  healthMod,
 		Example: exampleMod,
+		User:    userMod,
 	}, nil
 }
 

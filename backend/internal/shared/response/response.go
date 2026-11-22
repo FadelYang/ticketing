@@ -40,6 +40,11 @@ func Error(c *fiber.Ctx, err error) error {
 			Success: false,
 			Error:   err.Error(),
 		})
+	case errors.Is(err, apperror.ErrConflict):
+		return c.Status(fiber.StatusConflict).JSON(APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
 	default:
 		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
 			Success: false,
