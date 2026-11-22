@@ -100,6 +100,24 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	return response.Success(c, fiber.StatusOK, item)
 }
 
+func (h *Handler) Patch(c *fiber.Ctx) error {
+	id := c.Params("id")
+	userID, _ := c.Locals(middleware.ContextUserIDKey).(string)
+	userRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+
+	var input PatchInput
+	if err := c.BodyParser(&input); err != nil {
+		return response.BadRequest(c, "invalid JSON request body")
+	}
+
+	item, err := h.usecase.Patch(c.UserContext(), id, userID, userRole, input)
+	if err != nil {
+		return response.Error(c, err)
+	}
+
+	return response.Success(c, fiber.StatusOK, item)
+}
+
 func (h *Handler) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
 

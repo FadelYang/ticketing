@@ -31,5 +31,6 @@ func (m *Module) RegisterRoutes(router fiber.Router) {
 	group.Post("/", m.handler.Create)
 	group.Get("/:id", middleware.RequireAuth(m.jwtSecret), m.handler.GetByID)
 	group.Put("/:id", m.handler.Update)
+	group.Patch("/:id", middleware.RequireAuth(m.jwtSecret), m.handler.Patch)
 	group.Delete("/:id", m.handler.Delete)
 }

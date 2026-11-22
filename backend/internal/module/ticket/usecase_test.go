@@ -129,7 +129,7 @@ func TestTicketUsecase_CreateValidation(t *testing.T) {
 		{
 			name: "invalid status",
 			input: ticket.CreateInput{
-				Title: "Help", Description: "desc", Category: "billing", Priority: "low", Status: "closed", RequesterID: "req-1", DeadlineAt: deadline,
+				Title: "Help", Description: "desc", Category: "billing", Priority: "low", Status: "archived", RequesterID: "req-1", DeadlineAt: deadline,
 			},
 		},
 		{

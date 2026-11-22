@@ -39,7 +39,7 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*Ticket, error
 		return nil, err
 	}
 	if !IsValidStatus(input.Status) {
-		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved", apperror.ErrValidation)
+		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved, closed", apperror.ErrValidation)
 	}
 	if err := u.validateParticipants(ctx, input.RequesterID, input.AssigneeID); err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (u *usecase) List(ctx context.Context, filter Filter) ([]Ticket, error) {
 	filter.AssigneeID = strings.TrimSpace(filter.AssigneeID)
 
 	if filter.Status != "" && !IsValidStatus(filter.Status) {
-		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved", apperror.ErrValidation)
+		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved, closed", apperror.ErrValidation)
 	}
 	if filter.Priority != "" && !IsValidPriority(filter.Priority) {
 		return nil, fmt.Errorf("%w: priority must be one of low, medium, high, urgent", apperror.ErrValidation)
@@ -92,13 +92,125 @@ func (u *usecase) Update(ctx context.Context, id string, input UpdateInput) (*Ti
 		return nil, err
 	}
 	if input.Status != "" && !IsValidStatus(input.Status) {
-		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved", apperror.ErrValidation)
+		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved, closed", apperror.ErrValidation)
 	}
 	if err := u.validateParticipants(ctx, input.RequesterID, input.AssigneeID); err != nil {
 		return nil, err
 	}
 
 	return u.repo.Update(ctx, id, input)
+}
+
+func (u *usecase) Patch(ctx context.Context, id string, actorID string, actorRole string, input PatchInput) (*Ticket, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, fmt.Errorf("%w: id is required", apperror.ErrValidation)
+	}
+
+	existing, err := u.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	merged := UpdateInput{
+		Title:       existing.Title,
+		Description: existing.Description,
+		Category:    existing.Category,
+		Priority:    existing.Priority,
+		Status:      existing.Status,
+		RequesterID: existing.RequesterID,
+		AssigneeID:  existing.AssigneeID,
+		DeadlineAt:  existing.DeadlineAt,
+	}
+
+	if input.Priority != nil {
+		merged.Priority = strings.ToLower(strings.TrimSpace(*input.Priority))
+	}
+	if input.AssigneeID != nil {
+		nextAssignee := trimOptionalString(input.AssigneeID)
+		if existing.AssigneeID != nil && (nextAssignee == nil || *nextAssignee != *existing.AssigneeID) {
+			if !strings.EqualFold(strings.TrimSpace(actorRole), user.RoleAdmin) {
+				return nil, fmt.Errorf("%w: only admin can change assignee_id once assigned", apperror.ErrForbidden)
+			}
+		}
+		merged.AssigneeID = nextAssignee
+	}
+	if input.Status != nil {
+		merged.Status = normalizeStatus(*input.Status)
+		if !IsValidStatus(merged.Status) {
+			return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved, closed", apperror.ErrValidation)
+		}
+		if err := validateStatusTransition(existing.Status, merged.Status, actorID, actorRole, existing.RequesterID, merged.AssigneeID); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := validateTicketFields(merged.Title, merged.Description, merged.Category, merged.Priority, merged.DeadlineAt); err != nil {
+		return nil, err
+	}
+	if err := u.validateParticipants(ctx, merged.RequesterID, merged.AssigneeID); err != nil {
+		return nil, err
+	}
+
+	return u.repo.Update(ctx, id, merged)
+}
+
+func validateStatusTransition(fromStatus, toStatus, actorID, actorRole, requesterID string, assigneeID *string) error {
+	if fromStatus == toStatus {
+		return nil
+	}
+
+	role := strings.ToLower(strings.TrimSpace(actorRole))
+	isSpecificAssignee := role == user.RoleAgent && assigneeID != nil && *assigneeID == actorID
+	isTicketRequester := role == user.RoleRequester && requesterID == actorID
+
+	switch fromStatus {
+	case StatusOpen:
+		switch toStatus {
+		case StatusInProgress:
+			if role == user.RoleAdmin || isSpecificAssignee {
+				return nil
+			}
+			return fmt.Errorf("%w: only assigned agent or admin can move ticket from open to in_progress", apperror.ErrForbidden)
+		case StatusClosed:
+			if role == user.RoleAdmin || isTicketRequester {
+				return nil
+			}
+			return fmt.Errorf("%w: only requester or admin can close an open ticket", apperror.ErrForbidden)
+		default:
+			return fmt.Errorf("%w: cannot change status from open to %s", apperror.ErrValidation, toStatus)
+		}
+
+	case StatusInProgress:
+		switch toStatus {
+		case StatusResolved:
+			if role == user.RoleAdmin || isSpecificAssignee {
+				return nil
+			}
+			return fmt.Errorf("%w: only assigned agent or admin can move ticket from in_progress to resolved", apperror.ErrForbidden)
+		default:
+			return fmt.Errorf("%w: cannot change status from in_progress to %s", apperror.ErrValidation, toStatus)
+		}
+
+	case StatusResolved:
+		switch toStatus {
+		case StatusClosed:
+			if role == user.RoleAdmin || role == user.RoleAgent || isTicketRequester {
+				return nil
+			}
+			return fmt.Errorf("%w: insufficient permissions to close resolved ticket", apperror.ErrForbidden)
+		case StatusOpen:
+			if isTicketRequester {
+				return nil
+			}
+			return fmt.Errorf("%w: only requester can reopen a resolved ticket", apperror.ErrForbidden)
+		default:
+			return fmt.Errorf("%w: cannot change status from resolved to %s", apperror.ErrValidation, toStatus)
+		}
+
+	default:
+		return fmt.Errorf("%w: cannot change status from %s to %s", apperror.ErrValidation, fromStatus, toStatus)
+	}
 }
 
 func (u *usecase) Delete(ctx context.Context, id string) error {
