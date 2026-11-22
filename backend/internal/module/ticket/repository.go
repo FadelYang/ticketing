@@ -80,16 +80,42 @@ func (r *repository) FindByID(ctx context.Context, id string) (*Ticket, error) {
 	return &item, nil
 }
 
-func (r *repository) FindAll(ctx context.Context, filter Filter) ([]Ticket, error) {
-	rows, err := r.pool.Query(
+func (r *repository) FindAll(ctx context.Context, filter Filter) (*ListResult, error) {
+	var total int64
+	err := r.pool.QueryRow(
 		ctx,
-		queryListTickets,
+		queryCountTickets,
 		filter.Search,
 		filter.Status,
 		filter.Priority,
 		filter.Category,
 		filter.RequesterID,
 		filter.AssigneeID,
+	).Scan(&total)
+	if err != nil {
+		if isInvalidUUID(err) {
+			return nil, fmt.Errorf("%w: invalid uuid filter", apperror.ErrValidation)
+		}
+		return nil, fmt.Errorf("count tickets: %w", err)
+	}
+
+	query := queryListTicketsNewest
+	if filter.Sort == SortOldest {
+		query = queryListTicketsOldest
+	}
+	offset := (filter.Page - 1) * filter.Limit
+
+	rows, err := r.pool.Query(
+		ctx,
+		query,
+		filter.Search,
+		filter.Status,
+		filter.Priority,
+		filter.Category,
+		filter.RequesterID,
+		filter.AssigneeID,
+		filter.Limit,
+		offset,
 	)
 	if err != nil {
 		if isInvalidUUID(err) {
@@ -124,7 +150,18 @@ func (r *repository) FindAll(ctx context.Context, filter Filter) ([]Ticket, erro
 		return nil, fmt.Errorf("iterate ticket rows: %w", err)
 	}
 
-	return items, nil
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(filter.Limit) - 1) / int64(filter.Limit))
+	}
+
+	return &ListResult{
+		Items:      items,
+		Total:      total,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: totalPages,
+	}, nil
 }
 
 func (r *repository) Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error) {

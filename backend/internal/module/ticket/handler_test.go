@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,15 +38,56 @@ func (m *handlerMockRepo) FindByID(_ context.Context, id string) (*ticket.Ticket
 	return nil, apperror.ErrNotFound
 }
 
-func (m *handlerMockRepo) FindAll(_ context.Context, filter ticket.Filter) ([]ticket.Ticket, error) {
-	result := make([]ticket.Ticket, 0)
+func (m *handlerMockRepo) FindAll(_ context.Context, filter ticket.Filter) (*ticket.ListResult, error) {
+	filtered := make([]ticket.Ticket, 0)
 	for _, t := range m.tickets {
+		if filter.Search != "" && !strings.Contains(strings.ToLower(t.Title), strings.ToLower(filter.Search)) {
+			continue
+		}
+		if filter.Status != "" && t.Status != filter.Status {
+			continue
+		}
+		if filter.Priority != "" && t.Priority != filter.Priority {
+			continue
+		}
 		if filter.RequesterID != "" && t.RequesterID != filter.RequesterID {
 			continue
 		}
-		result = append(result, t)
+		if filter.AssigneeID != "" && (t.AssigneeID == nil || *t.AssigneeID != filter.AssigneeID) {
+			continue
+		}
+		filtered = append(filtered, t)
 	}
-	return result, nil
+
+	sort.Slice(filtered, func(i, j int) bool {
+		if filter.Sort == ticket.SortOldest {
+			return filtered[i].CreatedAt.Before(filtered[j].CreatedAt)
+		}
+		return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
+	})
+
+	total := int64(len(filtered))
+	start := (filter.Page - 1) * filter.Limit
+	if start > len(filtered) {
+		start = len(filtered)
+	}
+	end := start + filter.Limit
+	if end > len(filtered) {
+		end = len(filtered)
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(filter.Limit) - 1) / int64(filter.Limit))
+	}
+
+	return &ticket.ListResult{
+		Items:      filtered[start:end],
+		Total:      total,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: totalPages,
+	}, nil
 }
 
 func (m *handlerMockRepo) Update(_ context.Context, id string, input ticket.UpdateInput) (*ticket.Ticket, error) {
@@ -143,14 +186,14 @@ func TestTicketHandler_GetRules(t *testing.T) {
 		}
 
 		var body struct {
-			Success bool            `json:"success"`
-			Data    []ticket.Ticket `json:"data"`
+			Success bool              `json:"success"`
+			Data    ticket.ListResult `json:"data"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 			t.Fatalf("decode failed: %v", err)
 		}
-		if len(body.Data) != 1 || body.Data[0].ID != "t-1" {
-			t.Fatalf("expected only t-1, got %+v", body.Data)
+		if len(body.Data.Items) != 1 || body.Data.Items[0].ID != "t-1" {
+			t.Fatalf("expected only t-1, got %+v", body.Data.Items)
 		}
 	})
 
@@ -195,14 +238,14 @@ func TestTicketHandler_GetRules(t *testing.T) {
 			}
 
 			var body struct {
-				Success bool            `json:"success"`
-				Data    []ticket.Ticket `json:"data"`
+				Success bool              `json:"success"`
+				Data    ticket.ListResult `json:"data"`
 			}
 			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 				t.Fatalf("decode failed: %v", err)
 			}
-			if len(body.Data) != 2 {
-				t.Fatalf("expected 2 tickets, got %d", len(body.Data))
+			if len(body.Data.Items) != 2 {
+				t.Fatalf("expected 2 tickets, got %d", len(body.Data.Items))
 			}
 		})
 
@@ -450,4 +493,96 @@ func TestTicketHandler_StatusTransitionRules(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTicketHandler_ListFilterSearchSortPagination(t *testing.T) {
+	const secret = "test-secret"
+	now := time.Now()
+	agent1 := "agent-1"
+	agent2 := "agent-2"
+
+	repo := &handlerMockRepo{
+		tickets: []ticket.Ticket{
+			{ID: "t-1", Title: "Login issue", Description: "Cannot login", Status: ticket.StatusOpen, Priority: ticket.PriorityHigh, RequesterID: "req-1", AssigneeID: &agent1, CreatedAt: now.Add(-3 * time.Hour)},
+			{ID: "t-2", Title: "Billing error", Description: "Login page shows fee", Status: ticket.StatusInProgress, Priority: ticket.PriorityLow, RequesterID: "req-1", AssigneeID: &agent2, CreatedAt: now.Add(-2 * time.Hour)},
+			{ID: "t-3", Title: "Login timeout", Description: "Session expires", Status: ticket.StatusOpen, Priority: ticket.PriorityHigh, RequesterID: "req-2", AssigneeID: &agent1, CreatedAt: now.Add(-1 * time.Hour)},
+		},
+	}
+	uc := ticket.NewUsecase(repo, newTestUsers())
+	h := ticket.NewHandler(uc)
+	app := fiber.New()
+	app.Get("/api/v1/tickets", middleware.RequireAuth(secret), h.List)
+
+	adminToken, _ := jwt.GenerateToken(secret, 30*time.Minute, "admin-1", "admin@example.com", "Admin", user.RoleAdmin)
+
+	t.Run("filter by status, priority, assignee, and search by title", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/tickets?status=open&priority=high&assignee=agent-1&search=login", nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+
+		var body struct {
+			Success bool              `json:"success"`
+			Data    ticket.ListResult `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatalf("decode failed: %v", err)
+		}
+		if body.Data.Total != 2 || len(body.Data.Items) != 2 {
+			t.Fatalf("expected 2 items, got %+v", body.Data)
+		}
+		// Default sort is newest first: t-3 then t-1
+		if body.Data.Items[0].ID != "t-3" || body.Data.Items[1].ID != "t-1" {
+			t.Fatalf("expected newest first [t-3, t-1], got [%s, %s]", body.Data.Items[0].ID, body.Data.Items[1].ID)
+		}
+	})
+
+	t.Run("sort oldest and paginate", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/tickets?sort=oldest&page=2&limit=2", nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+
+		var body struct {
+			Success bool              `json:"success"`
+			Data    ticket.ListResult `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatalf("decode failed: %v", err)
+		}
+		if body.Data.Total != 3 || body.Data.Page != 2 || body.Data.Limit != 2 || body.Data.TotalPages != 2 {
+			t.Fatalf("unexpected pagination metadata: %+v", body.Data)
+		}
+		if len(body.Data.Items) != 1 || body.Data.Items[0].ID != "t-3" {
+			t.Fatalf("expected [t-3] on page 2 sorted oldest, got %+v", body.Data.Items)
+		}
+	})
+
+	t.Run("invalid sort or pagination returns 400", func(t *testing.T) {
+		for _, url := range []string{
+			"/api/v1/tickets?sort=random",
+			"/api/v1/tickets?page=0",
+			"/api/v1/tickets?limit=101",
+		} {
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			req.Header.Set("Authorization", "Bearer "+adminToken)
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("expected 400 for %s, got %d", url, resp.StatusCode)
+			}
+		}
+	})
 }

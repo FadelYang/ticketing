@@ -53,6 +53,15 @@ type Ticket struct {
 	DeadlineAt  time.Time `json:"deadline_at"`
 }
 
+const (
+	SortNewest = "newest"
+	SortOldest = "oldest"
+
+	DefaultPage  = 1
+	DefaultLimit = 10
+	MaxLimit     = 100
+)
+
 type Filter struct {
 	Search      string
 	Status      string
@@ -60,6 +69,17 @@ type Filter struct {
 	Category    string
 	RequesterID string
 	AssigneeID  string
+	Sort        string
+	Page        int
+	Limit       int
+}
+
+type ListResult struct {
+	Items      []Ticket `json:"items"`
+	Total      int64    `json:"total"`
+	Page       int      `json:"page"`
+	Limit      int      `json:"limit"`
+	TotalPages int      `json:"total_pages"`
 }
 
 type CreateInput struct {
@@ -97,7 +117,7 @@ type UserFinder interface {
 type Repository interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	FindByID(ctx context.Context, id string) (*Ticket, error)
-	FindAll(ctx context.Context, filter Filter) ([]Ticket, error)
+	FindAll(ctx context.Context, filter Filter) (*ListResult, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
 	Delete(ctx context.Context, id string) error
 }
@@ -105,7 +125,7 @@ type Repository interface {
 type Usecase interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	GetByID(ctx context.Context, id string) (*Ticket, error)
-	List(ctx context.Context, filter Filter) ([]Ticket, error)
+	List(ctx context.Context, filter Filter) (*ListResult, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
 	Patch(ctx context.Context, id string, actorID string, actorRole string, input PatchInput) (*Ticket, error)
 	Delete(ctx context.Context, id string) error

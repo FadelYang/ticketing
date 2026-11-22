@@ -56,19 +56,38 @@ func (u *usecase) GetByID(ctx context.Context, id string) (*Ticket, error) {
 	return u.repo.FindByID(ctx, id)
 }
 
-func (u *usecase) List(ctx context.Context, filter Filter) ([]Ticket, error) {
+func (u *usecase) List(ctx context.Context, filter Filter) (*ListResult, error) {
 	filter.Search = strings.TrimSpace(filter.Search)
 	filter.Status = normalizeStatus(filter.Status)
 	filter.Priority = strings.ToLower(strings.TrimSpace(filter.Priority))
 	filter.Category = strings.TrimSpace(filter.Category)
 	filter.RequesterID = strings.TrimSpace(filter.RequesterID)
 	filter.AssigneeID = strings.TrimSpace(filter.AssigneeID)
+	filter.Sort = strings.ToLower(strings.TrimSpace(filter.Sort))
+	if filter.Sort == "" {
+		filter.Sort = SortNewest
+	}
+	if filter.Page == 0 {
+		filter.Page = DefaultPage
+	}
+	if filter.Limit == 0 {
+		filter.Limit = DefaultLimit
+	}
 
 	if filter.Status != "" && !IsValidStatus(filter.Status) {
 		return nil, fmt.Errorf("%w: status must be one of open, in_progress, resolved, closed", apperror.ErrValidation)
 	}
 	if filter.Priority != "" && !IsValidPriority(filter.Priority) {
 		return nil, fmt.Errorf("%w: priority must be one of low, medium, high, urgent", apperror.ErrValidation)
+	}
+	if filter.Sort != SortNewest && filter.Sort != SortOldest {
+		return nil, fmt.Errorf("%w: sort must be newest or oldest", apperror.ErrValidation)
+	}
+	if filter.Page < 1 {
+		return nil, fmt.Errorf("%w: page must be at least 1", apperror.ErrValidation)
+	}
+	if filter.Limit < 1 || filter.Limit > MaxLimit {
+		return nil, fmt.Errorf("%w: limit must be between 1 and %d", apperror.ErrValidation, MaxLimit)
 	}
 
 	return u.repo.FindAll(ctx, filter)

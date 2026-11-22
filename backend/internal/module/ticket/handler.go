@@ -1,6 +1,7 @@
 package ticket
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,13 +23,44 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	userID, _ := c.Locals(middleware.ContextUserIDKey).(string)
 	userRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)
 
+	search := c.Query("search")
+	if search == "" {
+		search = c.Query("title")
+	}
+
+	assigneeID := c.Query("assignee")
+	if assigneeID == "" {
+		assigneeID = c.Query("assignee_id")
+	}
+
+	page := DefaultPage
+	if rawPage := strings.TrimSpace(c.Query("page")); rawPage != "" {
+		parsed, err := strconv.Atoi(rawPage)
+		if err != nil || parsed < 1 {
+			return response.BadRequest(c, "page must be a positive integer")
+		}
+		page = parsed
+	}
+
+	limit := DefaultLimit
+	if rawLimit := strings.TrimSpace(c.Query("limit")); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 {
+			return response.BadRequest(c, "limit must be a positive integer")
+		}
+		limit = parsed
+	}
+
 	filter := Filter{
-		Search:      c.Query("search"),
+		Search:      search,
 		Status:      c.Query("status"),
 		Priority:    c.Query("priority"),
 		Category:    c.Query("category"),
 		RequesterID: c.Query("requester_id"),
-		AssigneeID:  c.Query("assignee_id"),
+		AssigneeID:  assigneeID,
+		Sort:        c.Query("sort"),
+		Page:        page,
+		Limit:       limit,
 	}
 
 	switch strings.ToLower(strings.TrimSpace(userRole)) {
@@ -40,12 +72,12 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		return response.Forbidden(c, "insufficient permissions")
 	}
 
-	items, err := h.usecase.List(c.UserContext(), filter)
+	result, err := h.usecase.List(c.UserContext(), filter)
 	if err != nil {
 		return response.Error(c, err)
 	}
 
-	return response.Success(c, fiber.StatusOK, items)
+	return response.Success(c, fiber.StatusOK, result)
 }
 
 func (h *Handler) GetByID(c *fiber.Ctx) error {

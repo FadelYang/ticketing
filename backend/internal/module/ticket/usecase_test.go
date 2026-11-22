@@ -35,8 +35,14 @@ func (m *mockTicketRepo) FindByID(_ context.Context, _ string) (*ticket.Ticket, 
 	return nil, apperror.ErrNotFound
 }
 
-func (m *mockTicketRepo) FindAll(_ context.Context, _ ticket.Filter) ([]ticket.Ticket, error) {
-	return []ticket.Ticket{}, nil
+func (m *mockTicketRepo) FindAll(_ context.Context, filter ticket.Filter) (*ticket.ListResult, error) {
+	return &ticket.ListResult{
+		Items:      []ticket.Ticket{},
+		Total:      0,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: 0,
+	}, nil
 }
 
 func (m *mockTicketRepo) Update(_ context.Context, id string, input ticket.UpdateInput) (*ticket.Ticket, error) {

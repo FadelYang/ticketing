@@ -13,16 +13,41 @@ const (
 		WHERE id = $1::uuid
 	`
 
-	queryListTickets = `
+	queryCountTickets = `
+		SELECT COUNT(*)
+		FROM tickets
+		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%')
+		  AND ($2 = '' OR status = $2)
+		  AND ($3 = '' OR priority = $3)
+		  AND ($4 = '' OR category = $4)
+		  AND ($5 = '' OR requester_id = NULLIF($5, '')::uuid)
+		  AND ($6 = '' OR assignee_id = NULLIF($6, '')::uuid)
+	`
+
+	queryListTicketsNewest = `
 		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
 		FROM tickets
-		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%' OR description ILIKE '%' || $1 || '%' OR category ILIKE '%' || $1 || '%')
+		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%')
 		  AND ($2 = '' OR status = $2)
 		  AND ($3 = '' OR priority = $3)
 		  AND ($4 = '' OR category = $4)
 		  AND ($5 = '' OR requester_id = NULLIF($5, '')::uuid)
 		  AND ($6 = '' OR assignee_id = NULLIF($6, '')::uuid)
 		ORDER BY created_at DESC
+		LIMIT $7 OFFSET $8
+	`
+
+	queryListTicketsOldest = `
+		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
+		FROM tickets
+		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%')
+		  AND ($2 = '' OR status = $2)
+		  AND ($3 = '' OR priority = $3)
+		  AND ($4 = '' OR category = $4)
+		  AND ($5 = '' OR requester_id = NULLIF($5, '')::uuid)
+		  AND ($6 = '' OR assignee_id = NULLIF($6, '')::uuid)
+		ORDER BY created_at ASC
+		LIMIT $7 OFFSET $8
 	`
 
 	queryUpdateTicket = `
