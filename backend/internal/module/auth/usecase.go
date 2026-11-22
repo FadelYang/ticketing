@@ -29,13 +29,23 @@ func NewUsecase(repo Repository, jwtSecret string, jwtTTL time.Duration) Usecase
 	}
 }
 
-func (u *usecase) Register(ctx context.Context, input RegisterInput) (*TokenResponse, error) {
+func (u *usecase) Register(ctx context.Context, input RegisterInput, callerRole string) (*TokenResponse, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Email = strings.TrimSpace(input.Email)
 	input.PhoneNumber = strings.TrimSpace(input.PhoneNumber)
-	input.Role = strings.ToLower(strings.TrimSpace(input.Role))
-	if input.Role == "" {
-		input.Role = user.RoleRequester
+
+	role := user.RoleRequester
+	requestedRole := strings.ToLower(strings.TrimSpace(input.Role))
+	isAdmin := strings.EqualFold(strings.TrimSpace(callerRole), user.RoleAdmin)
+
+	if requestedRole != "" {
+		if !user.IsValidRole(requestedRole) {
+			return nil, fmt.Errorf("%w: role must be one of requester, agent, admin", apperror.ErrValidation)
+		}
+		if requestedRole != user.RoleRequester && !isAdmin {
+			return nil, fmt.Errorf("%w: only admin can register a user with role %s", apperror.ErrForbidden, requestedRole)
+		}
+		role = requestedRole
 	}
 
 	if err := validateRegisterInput(input); err != nil {
@@ -47,7 +57,7 @@ func (u *usecase) Register(ctx context.Context, input RegisterInput) (*TokenResp
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	createdUser, err := u.repo.CreateUser(ctx, input.Name, input.Email, input.PhoneNumber, input.Role, string(hash))
+	createdUser, err := u.repo.CreateUser(ctx, input.Name, input.Email, input.PhoneNumber, role, string(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +131,6 @@ func validateRegisterInput(input RegisterInput) error {
 	}
 	if len(input.PhoneNumber) > 50 {
 		return fmt.Errorf("%w: phonenumber must be at most 50 characters", apperror.ErrValidation)
-	}
-
-	if !user.IsValidRole(input.Role) {
-		return fmt.Errorf("%w: role must be one of requester, agent, admin", apperror.ErrValidation)
 	}
 
 	if len(input.Password) < 8 {

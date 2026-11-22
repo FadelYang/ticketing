@@ -3,6 +3,7 @@ package auth
 import (
 	"github.com/gofiber/fiber/v2"
 
+	"monorepo/backend/internal/shared/middleware"
 	"monorepo/backend/internal/shared/response"
 )
 
@@ -20,7 +21,8 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		return response.BadRequest(c, "invalid JSON request body")
 	}
 
-	result, err := h.usecase.Register(c.UserContext(), input)
+	callerRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+	result, err := h.usecase.Register(c.UserContext(), input, callerRole)
 	if err != nil {
 		return response.Error(c, err)
 	}

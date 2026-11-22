@@ -41,7 +41,7 @@ type Repository interface {
 }
 
 type Usecase interface {
-	Register(ctx context.Context, input RegisterInput) (*TokenResponse, error)
+	Register(ctx context.Context, input RegisterInput, callerRole string) (*TokenResponse, error)
 	Login(ctx context.Context, input LoginInput) (*TokenResponse, error)
 	Logout(ctx context.Context) (*LogoutResponse, error)
 }

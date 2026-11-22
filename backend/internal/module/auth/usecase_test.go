@@ -62,7 +62,7 @@ func TestRegisterAndLoginSuccess(t *testing.T) {
 		Email:       "  alice@example.com  ",
 		PhoneNumber: "  +628123456789  ",
 		Password:    "supersecret",
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
@@ -120,19 +120,60 @@ func TestRegisterValidation(t *testing.T) {
 			name:  "short password",
 			input: RegisterInput{Name: "Alice", Email: "a@example.com", PhoneNumber: "+6281", Password: "short"},
 		},
-		{
-			name:  "invalid role",
-			input: RegisterInput{Name: "Alice", Email: "a@example.com", PhoneNumber: "+6281", Role: "owner", Password: "password123"},
-		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := uc.Register(context.Background(), tc.input)
+			_, err := uc.Register(context.Background(), tc.input, "")
 			if !errors.Is(err, apperror.ErrValidation) {
 				t.Fatalf("expected validation error, got %v", err)
 			}
 		})
+	}
+}
+
+func TestRegisterByAdminUsesProvidedRole(t *testing.T) {
+	uc := NewUsecase(newMockRepo(), "test-secret", 30*time.Minute)
+
+	resp, err := uc.Register(context.Background(), RegisterInput{
+		Name:        "Bob",
+		Email:       "bob@example.com",
+		PhoneNumber: "+628111111111",
+		Role:        "agent",
+		Password:    "supersecret",
+	}, user.RoleAdmin)
+	if err != nil {
+		t.Fatalf("admin register failed: %v", err)
+	}
+	if resp.User.Role != user.RoleAgent {
+		t.Fatalf("expected role agent, got %q", resp.User.Role)
+	}
+
+	if _, err := uc.Register(context.Background(), RegisterInput{
+		Name:        "Charlie",
+		Email:       "charlie@example.com",
+		PhoneNumber: "+628222222222",
+		Role:        "invalid-role",
+		Password:    "supersecret",
+	}, user.RoleAdmin); !errors.Is(err, apperror.ErrValidation) {
+		t.Fatalf("expected validation error for invalid role by admin, got %v", err)
+	}
+}
+
+func TestRegisterAgentRequiresAdmin(t *testing.T) {
+	uc := NewUsecase(newMockRepo(), "test-secret", 30*time.Minute)
+
+	for _, callerRole := range []string{"", user.RoleRequester, user.RoleAgent} {
+		_, err := uc.Register(context.Background(), RegisterInput{
+			Name:        "AgentCandidate",
+			Email:       "candidate@example.com",
+			PhoneNumber: "+628333333333",
+			Role:        user.RoleAgent,
+			Password:    "supersecret",
+		}, callerRole)
+		if !errors.Is(err, apperror.ErrForbidden) {
+			t.Fatalf("expected ErrForbidden for callerRole=%q, got %v", callerRole, err)
+		}
 	}
 }
 
@@ -144,7 +185,7 @@ func TestLoginInvalidCredentials(t *testing.T) {
 		Email:       "alice@example.com",
 		PhoneNumber: "+628123456789",
 		Password:    "supersecret",
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}

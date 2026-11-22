@@ -10,6 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"monorepo/backend/internal/module/user"
+	"monorepo/backend/internal/shared/jwt"
 	"monorepo/backend/internal/shared/middleware"
 )
 
@@ -20,7 +22,7 @@ func setupTestApp() *fiber.App {
 
 	app := fiber.New()
 	group := app.Group("/api/v1/auth")
-	group.Post("/register", h.Register)
+	group.Post("/register", middleware.OptionalAuth(secret), h.Register)
 	group.Post("/login", h.Login)
 	group.Post("/logout", middleware.RequireAuth(secret), h.Logout)
 	return app
@@ -85,5 +87,47 @@ func TestAuthHTTPFlow(t *testing.T) {
 	}
 	if logoutResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", logoutResp.StatusCode)
+	}
+
+	// 5. Admin token registering a new agent -> role is set from form
+	adminToken, err := jwt.GenerateToken("test-secret", 30*time.Minute, "admin-id", "admin@example.com", "Admin", user.RoleAdmin)
+	if err != nil {
+		t.Fatalf("generate admin token failed: %v", err)
+	}
+	agentBody := []byte(`{"name":"AgentBob","email":"agentbob@example.com","phonenumber":"+628999999999","role":"agent","password":"password123"}`)
+	agentReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(agentBody))
+	agentReq.Header.Set("Content-Type", "application/json")
+	agentReq.Header.Set("Authorization", "Bearer "+adminToken)
+
+	agentResp, err := app.Test(agentReq)
+	if err != nil {
+		t.Fatalf("admin register request failed: %v", err)
+	}
+	if agentResp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d", agentResp.StatusCode)
+	}
+
+	var agentParsed struct {
+		Success bool          `json:"success"`
+		Data    TokenResponse `json:"data"`
+	}
+	if err := json.NewDecoder(agentResp.Body).Decode(&agentParsed); err != nil {
+		t.Fatalf("decode agent register response failed: %v", err)
+	}
+	if agentParsed.Data.User.Role != user.RoleAgent {
+		t.Fatalf("expected role agent, got %q", agentParsed.Data.User.Role)
+	}
+
+	// 6. Non-admin registering an agent -> 403 Forbidden
+	unauthAgentBody := []byte(`{"name":"AgentUnauth","email":"agentunauth@example.com","phonenumber":"+628888888888","role":"agent","password":"password123"}`)
+	unauthAgentReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(unauthAgentBody))
+	unauthAgentReq.Header.Set("Content-Type", "application/json")
+
+	unauthAgentResp, err := app.Test(unauthAgentReq)
+	if err != nil {
+		t.Fatalf("unauth agent register request failed: %v", err)
+	}
+	if unauthAgentResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden, got %d", unauthAgentResp.StatusCode)
 	}
 }

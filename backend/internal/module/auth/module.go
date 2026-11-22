@@ -29,7 +29,7 @@ func NewModule(pool *pgxpool.Pool, jwtSecret string, jwtTTL time.Duration) *Modu
 
 func (m *Module) RegisterRoutes(router fiber.Router) {
 	group := router.Group("/auth")
-	group.Post("/register", m.handler.Register)
+	group.Post("/register", middleware.OptionalAuth(m.jwtSecret), m.handler.Register)
 	group.Post("/login", m.handler.Login)
 	group.Post("/logout", middleware.RequireAuth(m.jwtSecret), m.handler.Logout)
 }
