@@ -1,0 +1,211 @@
+package ticket
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"monorepo/backend/internal/shared/apperror"
+)
+
+type repository struct {
+	pool *pgxpool.Pool
+}
+
+func NewRepository(pool *pgxpool.Pool) Repository {
+	return &repository{pool: pool}
+}
+
+func (r *repository) Create(ctx context.Context, input CreateInput) (*Ticket, error) {
+	var item Ticket
+	err := r.pool.QueryRow(
+		ctx,
+		queryCreateTicket,
+		input.Title,
+		input.Description,
+		input.Category,
+		input.Priority,
+		input.Status,
+		input.RequesterID,
+		input.AssigneeID,
+		input.DeadlineAt,
+	).Scan(
+		&item.ID,
+		&item.Title,
+		&item.Description,
+		&item.Category,
+		&item.Priority,
+		&item.Status,
+		&item.RequesterID,
+		&item.AssigneeID,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.DeadlineAt,
+	)
+	if err != nil {
+		if mapped := mapPgWriteError(err); mapped != nil {
+			return nil, mapped
+		}
+		return nil, fmt.Errorf("create ticket: %w", err)
+	}
+	return &item, nil
+}
+
+func (r *repository) FindByID(ctx context.Context, id string) (*Ticket, error) {
+	var item Ticket
+	err := r.pool.QueryRow(ctx, queryGetTicketByID, id).Scan(
+		&item.ID,
+		&item.Title,
+		&item.Description,
+		&item.Category,
+		&item.Priority,
+		&item.Status,
+		&item.RequesterID,
+		&item.AssigneeID,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.DeadlineAt,
+	)
+	if err != nil {
+		if isNotFoundOrInvalidUUID(err) {
+			return nil, apperror.ErrNotFound
+		}
+		return nil, fmt.Errorf("find ticket by id: %w", err)
+	}
+	return &item, nil
+}
+
+func (r *repository) FindAll(ctx context.Context, filter Filter) ([]Ticket, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		queryListTickets,
+		filter.Search,
+		filter.Status,
+		filter.Priority,
+		filter.Category,
+		filter.RequesterID,
+		filter.AssigneeID,
+	)
+	if err != nil {
+		if isInvalidUUID(err) {
+			return nil, fmt.Errorf("%w: invalid uuid filter", apperror.ErrValidation)
+		}
+		return nil, fmt.Errorf("list tickets: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]Ticket, 0)
+	for rows.Next() {
+		var item Ticket
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Description,
+			&item.Category,
+			&item.Priority,
+			&item.Status,
+			&item.RequesterID,
+			&item.AssigneeID,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.DeadlineAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan ticket row: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate ticket rows: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *repository) Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error) {
+	var item Ticket
+	err := r.pool.QueryRow(
+		ctx,
+		queryUpdateTicket,
+		id,
+		input.Title,
+		input.Description,
+		input.Category,
+		input.Priority,
+		input.Status,
+		input.RequesterID,
+		input.AssigneeID,
+		input.DeadlineAt,
+	).Scan(
+		&item.ID,
+		&item.Title,
+		&item.Description,
+		&item.Category,
+		&item.Priority,
+		&item.Status,
+		&item.RequesterID,
+		&item.AssigneeID,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.DeadlineAt,
+	)
+	if err != nil {
+		if isNotFoundOrInvalidUUID(err) {
+			return nil, apperror.ErrNotFound
+		}
+		if mapped := mapPgWriteError(err); mapped != nil {
+			return nil, mapped
+		}
+		return nil, fmt.Errorf("update ticket: %w", err)
+	}
+	return &item, nil
+}
+
+func (r *repository) Delete(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx, queryDeleteTicket, id)
+	if err != nil {
+		if isInvalidUUID(err) {
+			return apperror.ErrNotFound
+		}
+		return fmt.Errorf("delete ticket: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return apperror.ErrNotFound
+	}
+	return nil
+}
+
+func isNotFoundOrInvalidUUID(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows) || isInvalidUUID(err)
+}
+
+func isInvalidUUID(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "22P02"
+}
+
+func mapPgWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return nil
+	}
+
+	switch pgErr.Code {
+	case "22P02":
+		return fmt.Errorf("%w: invalid uuid format", apperror.ErrValidation)
+	case "23503":
+		if strings.Contains(pgErr.ConstraintName, "assignee") {
+			return fmt.Errorf("%w: assignee_id references a non-existent user", apperror.ErrValidation)
+		}
+		return fmt.Errorf("%w: requester_id references a non-existent user", apperror.ErrValidation)
+	case "23514":
+		return fmt.Errorf("%w: invalid field value", apperror.ErrValidation)
+	default:
+		return nil
+	}
+}
