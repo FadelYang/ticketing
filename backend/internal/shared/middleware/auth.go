@@ -13,6 +13,7 @@ import (
 const (
 	ContextUserIDKey    = "user_id"
 	ContextUserEmailKey = "user_email"
+	ContextUserRoleKey  = "user_role"
 )
 
 func RequireAuth(jwtSecret string) fiber.Handler {
@@ -37,7 +38,23 @@ func RequireAuth(jwtSecret string) fiber.Handler {
 
 		c.Locals(ContextUserIDKey, claims.Subject)
 		c.Locals(ContextUserEmailKey, claims.Email)
+		c.Locals(ContextUserRoleKey, claims.Role)
 
+		return c.Next()
+	}
+}
+
+func RequireRoles(allowedRoles ...string) fiber.Handler {
+	allowed := make(map[string]struct{}, len(allowedRoles))
+	for _, role := range allowedRoles {
+		allowed[strings.ToLower(strings.TrimSpace(role))] = struct{}{}
+	}
+
+	return func(c *fiber.Ctx) error {
+		role, _ := c.Locals(ContextUserRoleKey).(string)
+		if _, ok := allowed[strings.ToLower(strings.TrimSpace(role))]; !ok {
+			return response.Forbidden(c, "insufficient permissions")
+		}
 		return c.Next()
 	}
 }

@@ -22,7 +22,7 @@ func newMockRepo() *mockRepo {
 	}
 }
 
-func (m *mockRepo) CreateUser(_ context.Context, name, email, phoneNumber, passwordHash string) (*user.User, error) {
+func (m *mockRepo) CreateUser(_ context.Context, name, email, phoneNumber, role, passwordHash string) (*user.User, error) {
 	key := strings.ToLower(email)
 	if _, exists := m.usersByEmail[key]; exists {
 		return nil, apperror.ErrConflict
@@ -34,6 +34,7 @@ func (m *mockRepo) CreateUser(_ context.Context, name, email, phoneNumber, passw
 		Name:        name,
 		Email:       email,
 		PhoneNumber: phoneNumber,
+		Role:        role,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -72,7 +73,7 @@ func TestRegisterAndLoginSuccess(t *testing.T) {
 	if regResp.ExpiresIn != 1800 {
 		t.Fatalf("expected expires_in 1800, got %d", regResp.ExpiresIn)
 	}
-	if regResp.User.Name != "Alice" || regResp.User.Email != "alice@example.com" {
+	if regResp.User.Name != "Alice" || regResp.User.Email != "alice@example.com" || regResp.User.Role != user.RoleRequester {
 		t.Fatalf("unexpected user returned: %+v", regResp.User)
 	}
 
@@ -80,7 +81,7 @@ func TestRegisterAndLoginSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected valid jwt token, got %v", err)
 	}
-	if claims.Subject != regResp.User.ID || claims.Email != "alice@example.com" {
+	if claims.Subject != regResp.User.ID || claims.Email != "alice@example.com" || claims.Role != user.RoleRequester {
 		t.Fatalf("unexpected jwt claims: %+v", claims)
 	}
 
@@ -118,6 +119,10 @@ func TestRegisterValidation(t *testing.T) {
 		{
 			name:  "short password",
 			input: RegisterInput{Name: "Alice", Email: "a@example.com", PhoneNumber: "+6281", Password: "short"},
+		},
+		{
+			name:  "invalid role",
+			input: RegisterInput{Name: "Alice", Email: "a@example.com", PhoneNumber: "+6281", Role: "owner", Password: "password123"},
 		},
 	}
 

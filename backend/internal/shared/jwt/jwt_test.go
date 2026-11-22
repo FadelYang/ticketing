@@ -11,7 +11,7 @@ import (
 
 func TestGenerateAndParseToken(t *testing.T) {
 	secret := "test-secret"
-	token, err := jwt.GenerateToken(secret, 30*time.Minute, "user-123", "alice@example.com", "Alice")
+	token, err := jwt.GenerateToken(secret, 30*time.Minute, "user-123", "alice@example.com", "Alice", "agent")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,6 +29,9 @@ func TestGenerateAndParseToken(t *testing.T) {
 	if claims.Name != "Alice" {
 		t.Fatalf("expected name Alice, got %q", claims.Name)
 	}
+	if claims.Role != "agent" {
+		t.Fatalf("expected role agent, got %q", claims.Role)
+	}
 	if claims.ExpiresAt-claims.IssuedAt != 1800 {
 		t.Fatalf("expected 1800s TTL, got %d", claims.ExpiresAt-claims.IssuedAt)
 	}
@@ -36,7 +39,7 @@ func TestGenerateAndParseToken(t *testing.T) {
 
 func TestParseTokenErrors(t *testing.T) {
 	secret := "test-secret"
-	token, err := jwt.GenerateToken(secret, 30*time.Minute, "user-123", "alice@example.com", "Alice")
+	token, err := jwt.GenerateToken(secret, 30*time.Minute, "user-123", "alice@example.com", "Alice", "requester")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +58,7 @@ func TestParseTokenErrors(t *testing.T) {
 		t.Fatalf("expected ErrInvalidToken for malformed token, got %v", err)
 	}
 
-	expiredToken, err := jwt.GenerateToken(secret, -1*time.Minute, "user-123", "alice@example.com", "Alice")
+	expiredToken, err := jwt.GenerateToken(secret, -1*time.Minute, "user-123", "alice@example.com", "Alice", "requester")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

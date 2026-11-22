@@ -33,6 +33,10 @@ func (u *usecase) Register(ctx context.Context, input RegisterInput) (*TokenResp
 	input.Name = strings.TrimSpace(input.Name)
 	input.Email = strings.TrimSpace(input.Email)
 	input.PhoneNumber = strings.TrimSpace(input.PhoneNumber)
+	input.Role = strings.ToLower(strings.TrimSpace(input.Role))
+	if input.Role == "" {
+		input.Role = user.RoleRequester
+	}
 
 	if err := validateRegisterInput(input); err != nil {
 		return nil, err
@@ -43,7 +47,7 @@ func (u *usecase) Register(ctx context.Context, input RegisterInput) (*TokenResp
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	createdUser, err := u.repo.CreateUser(ctx, input.Name, input.Email, input.PhoneNumber, string(hash))
+	createdUser, err := u.repo.CreateUser(ctx, input.Name, input.Email, input.PhoneNumber, input.Role, string(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +91,7 @@ func (u *usecase) Logout(_ context.Context) (*LogoutResponse, error) {
 }
 
 func (u *usecase) buildTokenResponse(usr *user.User) (*TokenResponse, error) {
-	token, err := jwt.GenerateToken(u.jwtSecret, u.jwtTTL, usr.ID, usr.Email, usr.Name)
+	token, err := jwt.GenerateToken(u.jwtSecret, u.jwtTTL, usr.ID, usr.Email, usr.Name, usr.Role)
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
@@ -117,6 +121,10 @@ func validateRegisterInput(input RegisterInput) error {
 	}
 	if len(input.PhoneNumber) > 50 {
 		return fmt.Errorf("%w: phonenumber must be at most 50 characters", apperror.ErrValidation)
+	}
+
+	if !user.IsValidRole(input.Role) {
+		return fmt.Errorf("%w: role must be one of requester, agent, admin", apperror.ErrValidation)
 	}
 
 	if len(input.Password) < 8 {

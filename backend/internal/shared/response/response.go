@@ -35,6 +35,13 @@ func Unauthorized(c *fiber.Ctx, message string) error {
 	})
 }
 
+func Forbidden(c *fiber.Ctx, message string) error {
+	return c.Status(fiber.StatusForbidden).JSON(APIResponse{
+		Success: false,
+		Error:   message,
+	})
+}
+
 func Error(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, apperror.ErrValidation):
@@ -44,6 +51,11 @@ func Error(c *fiber.Ctx, err error) error {
 		})
 	case errors.Is(err, apperror.ErrUnauthorized):
 		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+	case errors.Is(err, apperror.ErrForbidden):
+		return c.Status(fiber.StatusForbidden).JSON(APIResponse{
 			Success: false,
 			Error:   err.Error(),
 		})

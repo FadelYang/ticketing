@@ -25,11 +25,12 @@ type Claims struct {
 	Subject   string `json:"sub"`
 	Email     string `json:"email"`
 	Name      string `json:"name"`
+	Role      string `json:"role"`
 	IssuedAt  int64  `json:"iat"`
 	ExpiresAt int64  `json:"exp"`
 }
 
-func GenerateToken(secret string, ttl time.Duration, userID, email, name string) (string, error) {
+func GenerateToken(secret string, ttl time.Duration, userID, email, name, role string) (string, error) {
 	if secret == "" {
 		return "", errors.New("jwt secret is required")
 	}
@@ -44,6 +45,7 @@ func GenerateToken(secret string, ttl time.Duration, userID, email, name string)
 		Subject:   userID,
 		Email:     email,
 		Name:      name,
+		Role:      role,
 		IssuedAt:  now.Unix(),
 		ExpiresAt: now.Add(ttl).Unix(),
 	})

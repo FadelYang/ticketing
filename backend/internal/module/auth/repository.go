@@ -22,7 +22,7 @@ func NewRepository(pool *pgxpool.Pool) Repository {
 	return &repository{pool: pool}
 }
 
-func (r *repository) CreateUser(ctx context.Context, name, email, phoneNumber, passwordHash string) (*user.User, error) {
+func (r *repository) CreateUser(ctx context.Context, name, email, phoneNumber, role, passwordHash string) (*user.User, error) {
 	var item user.User
 	err := r.pool.QueryRow(
 		ctx,
@@ -30,12 +30,14 @@ func (r *repository) CreateUser(ctx context.Context, name, email, phoneNumber, p
 		name,
 		email,
 		phoneNumber,
+		role,
 		passwordHash,
 	).Scan(
 		&item.ID,
 		&item.Name,
 		&item.Email,
 		&item.PhoneNumber,
+		&item.Role,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&item.CreatedBy,
@@ -56,6 +58,7 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (*userWithPa
 		&result.User.Name,
 		&result.User.Email,
 		&result.User.PhoneNumber,
+		&result.User.Role,
 		&result.PasswordHash,
 		&result.User.CreatedAt,
 		&result.User.UpdatedAt,

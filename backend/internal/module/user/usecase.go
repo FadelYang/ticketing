@@ -21,9 +21,16 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*User, error) 
 	input.Name = strings.TrimSpace(input.Name)
 	input.Email = strings.TrimSpace(input.Email)
 	input.PhoneNumber = strings.TrimSpace(input.PhoneNumber)
+	input.Role = strings.ToLower(strings.TrimSpace(input.Role))
+	if input.Role == "" {
+		input.Role = RoleRequester
+	}
 
 	if err := validateUserFields(input.Name, input.Email, input.PhoneNumber); err != nil {
 		return nil, err
+	}
+	if !IsValidRole(input.Role) {
+		return nil, fmt.Errorf("%w: role must be one of requester, agent, admin", apperror.ErrValidation)
 	}
 
 	if input.CreatedBy != nil {
@@ -56,12 +63,16 @@ func (u *usecase) Update(ctx context.Context, id string, input UpdateInput) (*Us
 	input.Name = strings.TrimSpace(input.Name)
 	input.Email = strings.TrimSpace(input.Email)
 	input.PhoneNumber = strings.TrimSpace(input.PhoneNumber)
+	input.Role = strings.ToLower(strings.TrimSpace(input.Role))
 
 	if id == "" {
 		return nil, fmt.Errorf("%w: id is required", apperror.ErrValidation)
 	}
 	if err := validateUserFields(input.Name, input.Email, input.PhoneNumber); err != nil {
 		return nil, err
+	}
+	if input.Role != "" && !IsValidRole(input.Role) {
+		return nil, fmt.Errorf("%w: role must be one of requester, agent, admin", apperror.ErrValidation)
 	}
 
 	return u.repo.Update(ctx, id, input)

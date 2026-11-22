@@ -20,6 +20,7 @@ func (m *mockRepo) Create(_ context.Context, input user.CreateInput) (*user.User
 		Name:        input.Name,
 		Email:       input.Email,
 		PhoneNumber: input.PhoneNumber,
+		Role:        input.Role,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		CreatedBy:   input.CreatedBy,
@@ -65,6 +66,10 @@ func TestUserUsecase_CreateValidation(t *testing.T) {
 			name:  "empty phonenumber",
 			input: user.CreateInput{Name: "Alice", Email: "a@example.com", PhoneNumber: "  "},
 		},
+		{
+			name:  "invalid role",
+			input: user.CreateInput{Name: "Alice", Email: "a@example.com", PhoneNumber: "+123456", Role: "superuser"},
+		},
 	}
 
 	for _, tc := range tests {
@@ -101,6 +106,9 @@ func TestUserUsecase_CreateTrimmingAndCreatedBy(t *testing.T) {
 	}
 	if item.CreatedBy != nil {
 		t.Fatalf("expected blank created_by to become nil, got %v", *item.CreatedBy)
+	}
+	if item.Role != user.RoleRequester {
+		t.Fatalf("expected default role requester, got %q", item.Role)
 	}
 }
 

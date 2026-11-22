@@ -10,6 +10,7 @@ type RegisterInput struct {
 	Name        string `json:"name"`
 	Email       string `json:"email"`
 	PhoneNumber string `json:"phonenumber"`
+	Role        string `json:"role"`
 	Password    string `json:"password"`
 }
 
@@ -35,7 +36,7 @@ type userWithPassword struct {
 }
 
 type Repository interface {
-	CreateUser(ctx context.Context, name, email, phoneNumber, passwordHash string) (*user.User, error)
+	CreateUser(ctx context.Context, name, email, phoneNumber, role, passwordHash string) (*user.User, error)
 	FindByEmail(ctx context.Context, email string) (*userWithPassword, error)
 }
 
