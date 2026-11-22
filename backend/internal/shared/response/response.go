@@ -28,10 +28,22 @@ func BadRequest(c *fiber.Ctx, message string) error {
 	})
 }
 
+func Unauthorized(c *fiber.Ctx, message string) error {
+	return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+		Success: false,
+		Error:   message,
+	})
+}
+
 func Error(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, apperror.ErrValidation):
 		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+	case errors.Is(err, apperror.ErrUnauthorized):
+		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
 			Success: false,
 			Error:   err.Error(),
 		})
