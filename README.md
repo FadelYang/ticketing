@@ -18,6 +18,8 @@ A clean full-stack monorepo with a **module-based Go + Fiber + pgx/v5 (raw SQL)*
 │   │   ├── 20261121212100_create_examples_table.down.sql
 │   │   └── embed.go
 │   ├── internal/
+│   │   ├── app/
+│   │   │   └── container.go            # Central DI container (shared infra + cross-module wiring)
 │   │   ├── config/                     # Environment config loader
 │   │   ├── database/                   # pgxpool connection pool & migration runner
 │   │   ├── router/                     # Fiber router, middleware & module route mounting
@@ -105,11 +107,14 @@ make docker-migrate-status
    - `repository.go` (`pgxpool` queries)
    - `usecase.go` (business logic)
    - `handler.go` (Fiber handlers)
-   - `module.go` (`NewModule(pool)` + `RegisterRoutes(router)`)
-2. Register the module in `backend/cmd/api/main.go`:
+   - `module.go` (`NewModule(pool, ...)` exposing `Usecase`, and `RegisterRoutes(router)`)
+2. Wire it in `backend/internal/app/container.go` and pass any needed usecase directly:
    ```go
-   newModule := mymodule.NewModule(pool)
-   app := router.Setup(cfg, healthModule, exampleModule, newModule)
+   healthMod := health.NewModule(pool)
+   exampleMod := example.NewModule(pool)
+   // orderMod := order.NewModule(pool, exampleMod.Usecase)
+
+   fiberApp := router.Setup(cfg, healthMod, exampleMod)
    ```
 
 ## API Endpoints

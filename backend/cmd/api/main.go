@@ -8,38 +8,24 @@ import (
 	"syscall"
 	"time"
 
+	"monorepo/backend/internal/app"
 	"monorepo/backend/internal/config"
-	"monorepo/backend/internal/database"
-	"monorepo/backend/internal/module/example"
-	"monorepo/backend/internal/module/health"
-	"monorepo/backend/internal/router"
 )
 
 func main() {
 	cfg := config.Load()
 
-	ctx := context.Background()
-	pool, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
+	container, err := app.NewContainer(context.Background(), cfg)
 	if err != nil {
-		log.Fatalf("failed to connect to postgres: %v", err)
+		log.Fatalf("failed to initialize application: %v", err)
 	}
-	defer pool.Close()
-
-	if err := database.RunMigrations(ctx, pool); err != nil {
-		log.Fatalf("failed to run migrations: %v", err)
-	}
-
-	// Register feature modules (add new modules here as the app grows)
-	healthModule := health.NewModule(pool)
-	exampleModule := example.NewModule(pool)
-
-	app := router.Setup(cfg, healthModule, exampleModule)
+	defer container.Close()
 
 	// Graceful shutdown
 	go func() {
 		addr := ":" + cfg.AppPort
 		log.Printf("server starting on %s (%s)", addr, cfg.AppEnv)
-		if err := app.Listen(addr); err != nil {
+		if err := container.Fiber.Listen(addr); err != nil {
 			log.Printf("server stopped: %v", err)
 		}
 	}()
@@ -49,7 +35,7 @@ func main() {
 	<-quit
 
 	log.Println("shutting down server...")
-	if err := app.ShutdownWithTimeout(10 * time.Second); err != nil {
+	if err := container.Fiber.ShutdownWithTimeout(10 * time.Second); err != nil {
 		log.Printf("error during server shutdown: %v", err)
 	}
 }

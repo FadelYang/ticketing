@@ -6,16 +6,19 @@ import (
 )
 
 type Module struct {
+	Usecase Usecase
 	handler *Handler
 }
 
-// NewModule wires Repository -> Usecase -> Handler for the example module.
 func NewModule(pool *pgxpool.Pool) *Module {
 	repo := NewRepository(pool)
 	uc := NewUsecase(repo)
 	h := NewHandler(uc)
 
-	return &Module{handler: h}
+	return &Module{
+		Usecase: uc,
+		handler: h,
+	}
 }
 
 func (m *Module) RegisterRoutes(router fiber.Router) {
