@@ -127,6 +127,11 @@ type CommentCreator interface {
 	CreateForTicket(ctx context.Context, actorID, actorRole, ticketID, body string) error
 }
 
+type TicketNotifier interface {
+	NotifyTicketCreated(t *Ticket)
+	NotifyTicketUpdated(t *Ticket)
+}
+
 type Repository interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	FindByID(ctx context.Context, id string) (*Ticket, error)

@@ -31,6 +31,12 @@ func (m *Module) SetCommentCreator(comments CommentCreator) {
 	}
 }
 
+func (m *Module) SetNotifier(notifier TicketNotifier) {
+	if setter, ok := m.Usecase.(interface{ SetNotifier(TicketNotifier) }); ok {
+		setter.SetNotifier(notifier)
+	}
+}
+
 func (m *Module) RegisterRoutes(router fiber.Router) {
 	group := router.Group("/tickets")
 	group.Get("/", middleware.RequireAuth(m.jwtSecret), m.handler.List)

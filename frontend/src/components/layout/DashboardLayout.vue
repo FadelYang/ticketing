@@ -3,7 +3,9 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/authStore'
+import { useTicketSocket } from '@/composables/useTicketSocket'
 import BaseIcon from '@/components/common/BaseIcon.vue'
+import NotificationToast from '@/components/common/NotificationToast.vue'
 
 interface Props {
   totalCount?: number
@@ -22,6 +24,8 @@ const emit = defineEmits<{
 const router = useRouter()
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
+
+useTicketSocket()
 
 const roleLabel = computed(() => {
   const role = user.value?.role
@@ -176,5 +180,7 @@ async function handleLogout() {
         <slot />
       </main>
     </div>
+
+    <NotificationToast />
   </div>
 </template>

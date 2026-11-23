@@ -16,6 +16,7 @@ import (
 	"monorepo/backend/internal/module/ticket"
 	"monorepo/backend/internal/module/user"
 	"monorepo/backend/internal/router"
+	"monorepo/backend/internal/shared/ws"
 )
 
 type Container struct {
@@ -55,6 +56,9 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	commentMod := comment.NewModule(pool, ticketMod.Usecase, userMod.Usecase, cfg.JWTSecret)
 	ticketMod.SetCommentCreator(commentCreatorAdapter{uc: commentMod.Usecase})
 
+	wsHub := ws.NewHub(cfg.JWTSecret)
+	ticketMod.SetNotifier(ticketNotifierAdapter{hub: wsHub})
+
 	// If a new module needs another module's usecase, pass it directly:
 	// orderMod := order.NewModule(pool, exampleMod.Usecase)
 
@@ -66,6 +70,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		authMod,
 		ticketMod,
 		commentMod,
+		wsHub,
 	)
 
 	return &Container{
@@ -97,4 +102,20 @@ func (a commentCreatorAdapter) CreateForTicket(ctx context.Context, actorID, act
 		Body:     body,
 	})
 	return err
+}
+
+type ticketNotifierAdapter struct {
+	hub *ws.Hub
+}
+
+func (a ticketNotifierAdapter) NotifyTicketCreated(t *ticket.Ticket) {
+	if t != nil {
+		a.hub.BroadcastTicketEvent(ws.EventTicketCreated, t, t.RequesterID)
+	}
+}
+
+func (a ticketNotifierAdapter) NotifyTicketUpdated(t *ticket.Ticket) {
+	if t != nil {
+		a.hub.BroadcastTicketEvent(ws.EventTicketUpdated, t, t.RequesterID)
+	}
 }

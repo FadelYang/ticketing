@@ -15,6 +15,7 @@ type usecase struct {
 	repo     Repository
 	users    UserFinder
 	comments CommentCreator
+	notifier TicketNotifier
 }
 
 func NewUsecase(repo Repository, users UserFinder) Usecase {
@@ -26,6 +27,10 @@ func NewUsecase(repo Repository, users UserFinder) Usecase {
 
 func (u *usecase) SetCommentCreator(comments CommentCreator) {
 	u.comments = comments
+}
+
+func (u *usecase) SetNotifier(notifier TicketNotifier) {
+	u.notifier = notifier
 }
 
 func (u *usecase) Create(ctx context.Context, input CreateInput) (*Ticket, error) {
@@ -50,7 +55,14 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*Ticket, error
 		return nil, err
 	}
 
-	return u.repo.Create(ctx, input)
+	created, err := u.repo.Create(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if u.notifier != nil {
+		u.notifier.NotifyTicketCreated(created)
+	}
+	return created, nil
 }
 
 func (u *usecase) GetByID(ctx context.Context, id string) (*Ticket, error) {
@@ -136,7 +148,14 @@ func (u *usecase) Update(ctx context.Context, id string, input UpdateInput) (*Ti
 		return nil, err
 	}
 
-	return u.repo.Update(ctx, id, input)
+	updated, err := u.repo.Update(ctx, id, input)
+	if err != nil {
+		return nil, err
+	}
+	if u.notifier != nil {
+		u.notifier.NotifyTicketUpdated(updated)
+	}
+	return updated, nil
 }
 
 func (u *usecase) Patch(ctx context.Context, id string, actorID string, actorRole string, input PatchInput) (*Ticket, error) {
@@ -211,6 +230,10 @@ func (u *usecase) Patch(ctx context.Context, id string, actorID string, actorRol
 		if err := u.comments.CreateForTicket(ctx, actorID, actorRole, id, *statusComment); err != nil {
 			return nil, err
 		}
+	}
+
+	if u.notifier != nil {
+		u.notifier.NotifyTicketUpdated(updated)
 	}
 
 	return updated, nil

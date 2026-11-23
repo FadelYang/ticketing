@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ApiError } from '@/services/api'
 import { ticketService } from '@/services/ticketService'
+import { useTicketSocket } from '@/composables/useTicketSocket'
 import { useAuthStore } from '@/stores/authStore'
 import { useTicketStore } from '@/stores/ticketStore'
 import DashboardLayout from '@/components/layout/DashboardLayout.vue'
@@ -26,6 +27,15 @@ const { user } = storeToRefs(authStore)
 
 const ticketStore = useTicketStore()
 const { total, assignees, userMap } = storeToRefs(ticketStore)
+const { lastTicketEvent } = useTicketSocket()
+
+watch(lastTicketEvent, (event) => {
+  if (!event || !ticket.value) return
+  if (event.type === 'ticket.updated' && event.data.id === ticket.value.id) {
+    ticket.value = event.data
+    selectedAssigneeId.value = event.data.assignee_id ?? ''
+  }
+})
 
 const ticket = ref<Ticket | null>(null)
 const selectedAssigneeId = ref('')
