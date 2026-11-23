@@ -456,8 +456,11 @@ async function handleStatusChange(nextStatus: TicketStatus) {
               <!-- Description & Steps -->
               <MarkdownEditor id="detail-desc" :model-value="ticket.description" disabled />
 
-              <!-- Ticket Attachments -->
-              <div v-if="ticketAttachments.length > 0" class="flex flex-col gap-space-xs pt-space-sm border-t border-outline-variant/40">
+              <!-- Ticket Attachments (Read-only) -->
+              <div
+                v-if="ticketAttachments.length > 0"
+                class="flex flex-col gap-space-xs pt-space-sm border-t border-outline-variant/40"
+              >
                 <span class="font-label-md text-label-md text-on-surface font-semibold">
                   Attachments ({{ ticketAttachments.length }})
                 </span>
