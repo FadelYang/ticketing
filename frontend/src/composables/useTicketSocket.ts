@@ -117,6 +117,7 @@ function connect() {
       const ticketStore = useTicketStore()
       void ticketStore.fetchTickets()
       void ticketStore.fetchStatusCounts()
+      void ticketStore.fetchLateTickets()
 
       if (parsed.type === 'ticket.created') {
         pushNotification(parsed.data)

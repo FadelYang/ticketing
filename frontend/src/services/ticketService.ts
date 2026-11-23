@@ -44,6 +44,10 @@ export const ticketService = {
     return apiRequest<TicketStatusCounts>(`/tickets/counts${qs ? `?${qs}` : ''}`)
   },
 
+  getLateUrgent(): Promise<Ticket[]> {
+    return apiRequest<Ticket[]>('/tickets/late')
+  },
+
   getById(id: string): Promise<Ticket> {
     return apiRequest<Ticket>(`/tickets/${id}`)
   },

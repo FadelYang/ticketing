@@ -51,6 +51,7 @@ type Ticket struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	DeadlineAt  time.Time `json:"deadline_at"`
+	IsLate      bool      `json:"is_late"`
 }
 
 const (
@@ -136,6 +137,7 @@ type Repository interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	FindByID(ctx context.Context, id string) (*Ticket, error)
 	FindAll(ctx context.Context, filter Filter) (*ListResult, error)
+	FindLateUrgent(ctx context.Context, requesterID string) ([]Ticket, error)
 	CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
 	Delete(ctx context.Context, id string) error
@@ -145,6 +147,7 @@ type Usecase interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	GetByID(ctx context.Context, id string) (*Ticket, error)
 	List(ctx context.Context, filter Filter) (*ListResult, error)
+	ListLateUrgent(ctx context.Context, requesterID string) ([]Ticket, error)
 	CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
 	Patch(ctx context.Context, id string, actorID string, actorRole string, input PatchInput) (*Ticket, error)

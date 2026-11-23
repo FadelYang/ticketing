@@ -4,11 +4,13 @@ const (
 	queryCreateTicket = `
 		INSERT INTO tickets (title, description, category, priority, status, requester_id, assignee_id, deadline_at)
 		VALUES ($1, $2, $3, $4, $5, $6::uuid, $7::uuid, $8)
-		RETURNING id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
+		RETURNING id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at,
+		          (priority = 'urgent' AND status = 'open' AND created_at <= NOW() - INTERVAL '3 hours') AS is_late
 	`
 
 	queryGetTicketByID = `
-		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
+		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at,
+		       (priority = 'urgent' AND status = 'open' AND created_at <= NOW() - INTERVAL '3 hours') AS is_late
 		FROM tickets
 		WHERE id = $1::uuid
 	`
@@ -36,7 +38,8 @@ const (
 	`
 
 	queryListTicketsNewest = `
-		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
+		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at,
+		       (priority = 'urgent' AND status = 'open' AND created_at <= NOW() - INTERVAL '3 hours') AS is_late
 		FROM tickets
 		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%')
 		  AND ($2 = '' OR status = $2)
@@ -49,7 +52,8 @@ const (
 	`
 
 	queryListTicketsOldest = `
-		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
+		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at,
+		       (priority = 'urgent' AND status = 'open' AND created_at <= NOW() - INTERVAL '3 hours') AS is_late
 		FROM tickets
 		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%')
 		  AND ($2 = '' OR status = $2)
@@ -59,6 +63,17 @@ const (
 		  AND ($6 = '' OR assignee_id = NULLIF($6, '')::uuid)
 		ORDER BY created_at ASC
 		LIMIT $7 OFFSET $8
+	`
+
+	queryListLateUrgentTickets = `
+		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at,
+		       TRUE AS is_late
+		FROM tickets
+		WHERE priority = 'urgent'
+		  AND status = 'open'
+		  AND created_at <= NOW() - INTERVAL '3 hours'
+		  AND ($1 = '' OR requester_id = NULLIF($1, '')::uuid)
+		ORDER BY created_at ASC
 	`
 
 	queryUpdateTicket = `
@@ -73,7 +88,8 @@ const (
 		    deadline_at  = $9,
 		    updated_at   = NOW()
 		WHERE id = $1::uuid
-		RETURNING id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
+		RETURNING id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at,
+		          (priority = 'urgent' AND status = 'open' AND created_at <= NOW() - INTERVAL '3 hours') AS is_late
 	`
 
 	queryDeleteTicket = `

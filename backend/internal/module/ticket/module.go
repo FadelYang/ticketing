@@ -41,6 +41,7 @@ func (m *Module) RegisterRoutes(router fiber.Router) {
 	group := router.Group("/tickets")
 	group.Get("/", middleware.RequireAuth(m.jwtSecret), m.handler.List)
 	group.Get("/counts", middleware.RequireAuth(m.jwtSecret), m.handler.StatusCounts)
+	group.Get("/late", middleware.RequireAuth(m.jwtSecret), m.handler.LateUrgent)
 	group.Post("/", m.handler.Create)
 	group.Get("/:id", middleware.RequireAuth(m.jwtSecret), m.handler.GetByID)
 	group.Put("/:id", m.handler.Update)

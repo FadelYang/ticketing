@@ -49,6 +49,10 @@ func (m *mockTicketRepo) CountByStatus(_ context.Context, _ ticket.Filter) (*tic
 	return &ticket.StatusCounts{}, nil
 }
 
+func (m *mockTicketRepo) FindLateUrgent(_ context.Context, _ string) ([]ticket.Ticket, error) {
+	return []ticket.Ticket{}, nil
+}
+
 func (m *mockTicketRepo) Update(_ context.Context, id string, input ticket.UpdateInput) (*ticket.Ticket, error) {
 	now := time.Now()
 	status := input.Status

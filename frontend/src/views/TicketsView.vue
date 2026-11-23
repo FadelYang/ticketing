@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/authStore'
@@ -19,6 +19,7 @@ const { user } = storeToRefs(authStore)
 const ticketStore = useTicketStore()
 const {
   tickets,
+  lateTickets,
   assignees,
   userMap,
   total,
@@ -36,6 +37,7 @@ const canCreateTicket = computed(() => user.value?.role === 'requester')
 const pageTitle = computed(() => (isRequester.value ? 'My Tickets' : 'Tickets'))
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+let latePollTimer: ReturnType<typeof setInterval> | null = null
 
 watch(
   () => filters.value.status,
@@ -67,6 +69,17 @@ onMounted(() => {
   ticketStore.fetchUsers()
   ticketStore.fetchTickets(1)
   ticketStore.fetchStatusCounts()
+  ticketStore.fetchLateTickets()
+  latePollTimer = setInterval(() => {
+    void ticketStore.fetchLateTickets()
+  }, 60_000)
+})
+
+onUnmounted(() => {
+  if (latePollTimer) {
+    clearInterval(latePollTimer)
+    latePollTimer = null
+  }
 })
 
 function handleSelectTicket(ticket: Ticket) {
@@ -122,6 +135,32 @@ function handleNewTicket() {
         :show-assignee-filter="!isRequester"
         @reset="ticketStore.resetFilters()"
       />
+
+      <!-- Late Urgent Tickets Alert Above Table -->
+      <div
+        v-if="lateTickets.length > 0"
+        role="alert"
+        class="rounded-xl bg-error-container/70 border border-error/30 p-space-md flex flex-col gap-space-xs text-on-error-container shadow-xs"
+      >
+        <div class="flex items-center gap-2 font-label-md text-label-md font-bold">
+          <BaseIcon name="warning" class="text-[20px] text-error shrink-0" />
+          <span>
+            {{ lateTickets.length }} urgent {{ lateTickets.length === 1 ? 'ticket has' : 'tickets have' }}
+            not been handled within 3 hours
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-2 pl-7">
+          <RouterLink
+            v-for="late in lateTickets"
+            :key="late.id"
+            :to="{ name: 'ticket-detail', params: { id: late.id } }"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-lowest/90 hover:bg-surface-container-lowest text-on-surface font-body-sm text-body-sm font-medium border border-error/20 transition-colors"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-error shrink-0" />
+            <span class="truncate max-w-[260px]">{{ late.title }}</span>
+          </RouterLink>
+        </div>
+      </div>
 
       <!-- Master Tickets Table -->
       <TicketTable

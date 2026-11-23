@@ -7,6 +7,7 @@ import type { CreateTicketPayload, Ticket, TicketPriority, TicketStatus } from '
 
 export const useTicketStore = defineStore('tickets', () => {
   const tickets = ref<Ticket[]>([])
+  const lateTickets = ref<Ticket[]>([])
   const allUsers = ref<AuthUser[]>([])
   const total = ref(0)
   const page = ref(1)
@@ -96,6 +97,14 @@ export const useTicketStore = defineStore('tickets', () => {
     }
   }
 
+  async function fetchLateTickets() {
+    try {
+      lateTickets.value = await ticketService.getLateUrgent()
+    } catch {
+      // Non-blocking: keep previous late tickets list on transient error
+    }
+  }
+
   async function createTicket(payload: CreateTicketPayload): Promise<Ticket | null> {
     loading.value = true
     error.value = null
@@ -125,6 +134,7 @@ export const useTicketStore = defineStore('tickets', () => {
 
   return {
     tickets,
+    lateTickets,
     allUsers,
     assignees,
     userMap,
@@ -139,6 +149,7 @@ export const useTicketStore = defineStore('tickets', () => {
     fetchUsers,
     fetchTickets,
     fetchStatusCounts,
+    fetchLateTickets,
     createTicket,
     clearError,
     resetFilters,

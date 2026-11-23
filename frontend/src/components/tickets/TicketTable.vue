@@ -142,12 +142,20 @@ function formatDeadline(iso: string): string {
             </td>
 
             <td class="py-2 px-4">
-              <span
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-label-sm"
-                :class="priorityConfig[ticket.priority]?.badgeClass"
-              >
-                {{ priorityConfig[ticket.priority]?.label ?? ticket.priority }}
-              </span>
+              <div class="inline-flex items-center gap-1.5">
+                <span
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-label-sm"
+                  :class="priorityConfig[ticket.priority]?.badgeClass"
+                >
+                  {{ priorityConfig[ticket.priority]?.label ?? ticket.priority }}
+                </span>
+                <span
+                  v-if="ticket.is_late"
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-error text-on-error font-semibold"
+                >
+                  Late
+                </span>
+              </div>
             </td>
 
             <td class="py-2 px-4">

@@ -110,6 +110,10 @@ func (u *usecase) List(ctx context.Context, filter Filter) (*ListResult, error) 
 	return u.repo.FindAll(ctx, filter)
 }
 
+func (u *usecase) ListLateUrgent(ctx context.Context, requesterID string) ([]Ticket, error) {
+	return u.repo.FindLateUrgent(ctx, strings.TrimSpace(requesterID))
+}
+
 func (u *usecase) CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error) {
 	filter.Search = strings.TrimSpace(filter.Search)
 	filter.Priority = strings.ToLower(strings.TrimSpace(filter.Priority))

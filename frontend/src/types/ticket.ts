@@ -13,6 +13,7 @@ export interface Ticket {
   created_at: string
   updated_at: string
   deadline_at: string
+  is_late?: boolean
 }
 
 export interface TicketListResult {

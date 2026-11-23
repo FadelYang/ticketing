@@ -120,6 +120,22 @@ func (m *handlerMockRepo) CountByStatus(_ context.Context, filter ticket.Filter)
 	return counts, nil
 }
 
+func (m *handlerMockRepo) FindLateUrgent(_ context.Context, requesterID string) ([]ticket.Ticket, error) {
+	cutoff := time.Now().Add(-3 * time.Hour)
+	out := make([]ticket.Ticket, 0)
+	for _, t := range m.tickets {
+		if requesterID != "" && t.RequesterID != requesterID {
+			continue
+		}
+		if t.Priority == ticket.PriorityUrgent && t.Status == ticket.StatusOpen && !t.CreatedAt.After(cutoff) {
+			copyT := t
+			copyT.IsLate = true
+			out = append(out, copyT)
+		}
+	}
+	return out, nil
+}
+
 func (m *handlerMockRepo) Update(_ context.Context, id string, input ticket.UpdateInput) (*ticket.Ticket, error) {
 	for i, t := range m.tickets {
 		if t.ID == id {
@@ -161,6 +177,7 @@ func setupTicketTestApp() (*fiber.App, string) {
 	group := app.Group("/api/v1/tickets")
 	group.Get("/", middleware.RequireAuth(secret), h.List)
 	group.Get("/counts", middleware.RequireAuth(secret), h.StatusCounts)
+	group.Get("/late", middleware.RequireAuth(secret), h.LateUrgent)
 	group.Get("/:id", middleware.RequireAuth(secret), h.GetByID)
 	group.Patch("/:id", middleware.RequireAuth(secret), h.Patch)
 
@@ -202,6 +219,18 @@ func TestTicketHandler_GetRules(t *testing.T) {
 		}
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("late urgent endpoint returns 200", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/tickets/late", nil)
+		req.Header.Set("Authorization", "Bearer "+agentToken)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
 		}
 	})
 

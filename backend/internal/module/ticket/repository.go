@@ -46,6 +46,7 @@ func (r *repository) Create(ctx context.Context, input CreateInput) (*Ticket, er
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&item.DeadlineAt,
+		&item.IsLate,
 	)
 	if err != nil {
 		if mapped := mapPgWriteError(err); mapped != nil {
@@ -70,6 +71,7 @@ func (r *repository) FindByID(ctx context.Context, id string) (*Ticket, error) {
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&item.DeadlineAt,
+		&item.IsLate,
 	)
 	if err != nil {
 		if isNotFoundOrInvalidUUID(err) {
@@ -140,6 +142,7 @@ func (r *repository) FindAll(ctx context.Context, filter Filter) (*ListResult, e
 			&item.CreatedAt,
 			&item.UpdatedAt,
 			&item.DeadlineAt,
+			&item.IsLate,
 		); err != nil {
 			return nil, fmt.Errorf("scan ticket row: %w", err)
 		}
@@ -162,6 +165,45 @@ func (r *repository) FindAll(ctx context.Context, filter Filter) (*ListResult, e
 		Limit:      filter.Limit,
 		TotalPages: totalPages,
 	}, nil
+}
+
+func (r *repository) FindLateUrgent(ctx context.Context, requesterID string) ([]Ticket, error) {
+	rows, err := r.pool.Query(ctx, queryListLateUrgentTickets, requesterID)
+	if err != nil {
+		if isInvalidUUID(err) {
+			return nil, fmt.Errorf("%w: invalid requester_id uuid", apperror.ErrValidation)
+		}
+		return nil, fmt.Errorf("list late urgent tickets: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]Ticket, 0)
+	for rows.Next() {
+		var item Ticket
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Description,
+			&item.Category,
+			&item.Priority,
+			&item.Status,
+			&item.RequesterID,
+			&item.AssigneeID,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.DeadlineAt,
+			&item.IsLate,
+		); err != nil {
+			return nil, fmt.Errorf("scan late urgent ticket row: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate late urgent ticket rows: %w", err)
+	}
+
+	return items, nil
 }
 
 func (r *repository) CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error) {
@@ -235,6 +277,7 @@ func (r *repository) Update(ctx context.Context, id string, input UpdateInput) (
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&item.DeadlineAt,
+		&item.IsLate,
 	)
 	if err != nil {
 		if isNotFoundOrInvalidUUID(err) {

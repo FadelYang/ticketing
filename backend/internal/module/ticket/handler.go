@@ -119,6 +119,28 @@ func (h *Handler) StatusCounts(c *fiber.Ctx) error {
 	return response.Success(c, fiber.StatusOK, counts)
 }
 
+func (h *Handler) LateUrgent(c *fiber.Ctx) error {
+	userID, _ := c.Locals(middleware.ContextUserIDKey).(string)
+	userRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+
+	requesterID := ""
+	switch strings.ToLower(strings.TrimSpace(userRole)) {
+	case user.RoleRequester:
+		requesterID = userID
+	case user.RoleAgent, user.RoleAdmin:
+		// Agents and admins can view all late urgent tickets.
+	default:
+		return response.Forbidden(c, "insufficient permissions")
+	}
+
+	items, err := h.usecase.ListLateUrgent(c.UserContext(), requesterID)
+	if err != nil {
+		return response.Error(c, err)
+	}
+
+	return response.Success(c, fiber.StatusOK, items)
+}
+
 func (h *Handler) GetByID(c *fiber.Ctx) error {
 	userID, _ := c.Locals(middleware.ContextUserIDKey).(string)
 	userRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)
