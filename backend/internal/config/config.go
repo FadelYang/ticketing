@@ -20,7 +20,7 @@ func Load() *Config {
 	return &Config{
 		AppEnv:       getEnv("APP_ENV", "development"),
 		AppPort:      getEnv("APP_PORT", "8080"),
-		DatabaseURL:  getEnv("DATABASE_URL", "postgres://appuser:apppassword@localhost:5432/appdb?sslmode=disable"),
+		DatabaseURL:  getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/appdb?sslmode=disable"),
 		CORSOrigins:  getEnv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173"),
 		JWTSecret:    getEnv("JWT_SECRET", "dev-secret-change-me"),
 		JWTExpiresIn: time.Duration(getEnvInt("JWT_EXPIRATION_MINUTES", 30)) * time.Minute,

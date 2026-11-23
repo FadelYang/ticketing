@@ -67,7 +67,7 @@ docker compose up --build
 Services will be available at:
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080/api/v1/health
-- **PostgreSQL**: `localhost:5432` (`appuser` / `apppassword` / `appdb`)
+- **PostgreSQL**: `localhost:5432` (`postgres` / `postgres` / `appdb`)
 
 To stop services (add `-v` to reset the database volume):
 
