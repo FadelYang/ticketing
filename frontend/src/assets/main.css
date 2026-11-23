@@ -1,1 +1,134 @@
 @import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-secondary-fixed: #c9e6ff;
+  --color-tertiary: #3a495f;
+  --color-inverse-surface: #283044;
+  --color-secondary-fixed-dim: #89ceff;
+  --color-on-primary-container: #dad7ff;
+  --color-surface-container-highest: #dae2fd;
+  --color-outline: #777587;
+  --color-tertiary-fixed: #d3e4fe;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-tint: #4d44e3;
+  --color-tertiary-container: #516177;
+  --color-primary-fixed: #e2dfff;
+  --color-on-primary-fixed-variant: #3323cc;
+  --color-inverse-on-surface: #eef0ff;
+  --color-on-surface-variant: #464555;
+  --color-on-surface: #131b2e;
+  --color-background: #faf8ff;
+  --color-secondary: #006591;
+  --color-primary: #3525cd;
+  --color-surface-container: #eaedff;
+  --color-surface: #faf8ff;
+  --color-primary-container: #4f46e5;
+  --color-on-secondary-container: #004666;
+  --color-on-tertiary-container: #ccdcf7;
+  --color-primary-fixed-dim: #c3c0ff;
+  --color-on-tertiary-fixed-variant: #38485d;
+  --color-surface-container-high: #e2e7ff;
+  --color-tertiary-fixed-dim: #b7c8e1;
+  --color-on-secondary-fixed: #001e2f;
+  --color-error: #ba1a1a;
+  --color-on-tertiary: #ffffff;
+  --color-secondary-container: #39b8fd;
+  --color-outline-variant: #c7c4d8;
+  --color-surface-bright: #faf8ff;
+  --color-on-primary: #ffffff;
+  --color-surface-container-low: #f2f3ff;
+  --color-on-secondary: #ffffff;
+  --color-inverse-primary: #c3c0ff;
+  --color-on-secondary-fixed-variant: #004c6e;
+  --color-on-error-container: #93000a;
+  --color-on-primary-fixed: #0f0069;
+  --color-on-background: #131b2e;
+  --color-error-container: #ffdad6;
+  --color-surface-dim: #d2d9f4;
+  --color-on-tertiary-fixed: #0b1c30;
+  --color-surface-variant: #dae2fd;
+  --color-on-error: #ffffff;
+
+  /* Spacing */
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 0.75rem;
+  --spacing-space-lg: 1rem;
+  --spacing-space-xl: 1.5rem;
+  --spacing-space-2xl: 2rem;
+  --spacing-margin: 1rem;
+  --spacing-margin-desktop: 2rem;
+  --spacing-gutter: 1rem;
+  --spacing-gutter-desktop: 1.5rem;
+
+  /* Border Radius */
+  --radius-sm: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+
+  /* Fonts */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-code-sm: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Typography Scale */
+  --text-headline-xl: 2rem;
+  --text-headline-xl--line-height: 2.5rem;
+  --text-headline-xl--letter-spacing: -0.025em;
+  --text-headline-xl--font-weight: 600;
+
+  --text-headline-lg: 1.5rem;
+  --text-headline-lg--line-height: 2rem;
+  --text-headline-lg--letter-spacing: -0.02em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-md: 1.125rem;
+  --text-headline-md--line-height: 1.5rem;
+  --text-headline-md--letter-spacing: -0.015em;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 0.875rem;
+  --text-headline-sm--line-height: 1.25rem;
+  --text-headline-sm--letter-spacing: -0.005em;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.5rem;
+  --text-body-lg--letter-spacing: 0em;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 0.875rem;
+  --text-body-md--line-height: 1.25rem;
+  --text-body-md--letter-spacing: 0em;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 0.75rem;
+  --text-body-sm--line-height: 1rem;
+  --text-body-sm--letter-spacing: 0.01em;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-md: 0.8125rem;
+  --text-label-md--line-height: 1.125rem;
+  --text-label-md--letter-spacing: 0.005em;
+  --text-label-md--font-weight: 500;
+
+  --text-label-sm: 0.6875rem;
+  --text-label-sm--line-height: 0.875rem;
+  --text-label-sm--letter-spacing: 0.04em;
+  --text-label-sm--font-weight: 600;
+
+  --text-code-sm: 0.75rem;
+  --text-code-sm--line-height: 1rem;
+  --text-code-sm--letter-spacing: -0.01em;
+  --text-code-sm--font-weight: 400;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+  }
+}

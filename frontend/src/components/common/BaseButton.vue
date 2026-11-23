@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 interface Props {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
-  size?: 'sm' | 'md'
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success'
+  size?: 'sm' | 'md' | 'lg'
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean
+  loading?: boolean
+  block?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -13,31 +16,38 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   type: 'button',
   disabled: false,
+  loading: false,
+  block: false,
 })
 
 const classes = computed(() => {
   const base =
-    'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer'
+    'inline-flex items-center justify-center gap-space-xs rounded-lg font-headline-sm text-headline-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer shadow-sm'
 
-  const sizes: Record<string, string> = {
+  const sizes: Record<NonNullable<Props['size']>, string> = {
     sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2 text-sm',
+    md: 'px-space-lg py-2.5 text-headline-sm',
+    lg: 'h-11 px-space-xl text-body-md font-semibold',
   }
 
-  const variants: Record<string, string> = {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500',
+  const variants: Record<NonNullable<Props['variant']>, string> = {
+    primary: 'bg-primary-container text-on-primary hover:bg-primary',
     secondary:
-      'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:ring-indigo-500',
-    danger: 'bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500',
-    ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-400',
+      'border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-low',
+    danger: 'bg-error text-on-error hover:bg-on-error-container',
+    ghost: 'bg-transparent shadow-none text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
+    success: 'bg-secondary text-on-secondary hover:opacity-95',
   }
 
-  return [base, sizes[props.size], variants[props.variant]].join(' ')
+  return [base, sizes[props.size], variants[props.variant], props.block ? 'w-full' : '']
+    .filter(Boolean)
+    .join(' ')
 })
 </script>
 
 <template>
-  <button :type="type" :disabled="disabled" :class="classes">
+  <button :type="type" :disabled="disabled || loading" :class="classes">
+    <BaseIcon v-if="loading" name="progress_activity" class="text-base animate-spin" />
     <slot />
   </button>
 </template>
