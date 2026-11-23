@@ -10,6 +10,7 @@ import (
 	"monorepo/backend/internal/config"
 	"monorepo/backend/internal/database"
 	"monorepo/backend/internal/module/auth"
+	"monorepo/backend/internal/module/comment"
 	"monorepo/backend/internal/module/example"
 	"monorepo/backend/internal/module/health"
 	"monorepo/backend/internal/module/ticket"
@@ -27,6 +28,7 @@ type Container struct {
 	User    *user.Module
 	Auth    *auth.Module
 	Ticket  *ticket.Module
+	Comment *comment.Module
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -45,6 +47,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	userMod := user.NewModule(pool)
 	authMod := auth.NewModule(pool, cfg.JWTSecret, cfg.JWTExpiresIn)
 	ticketMod := ticket.NewModule(pool, userMod.Usecase, cfg.JWTSecret)
+	commentMod := comment.NewModule(pool, ticketMod.Usecase, userMod.Usecase, cfg.JWTSecret)
 
 	// If a new module needs another module's usecase, pass it directly:
 	// orderMod := order.NewModule(pool, exampleMod.Usecase)
@@ -56,6 +59,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		userMod,
 		authMod,
 		ticketMod,
+		commentMod,
 	)
 
 	return &Container{
@@ -67,6 +71,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		User:    userMod,
 		Auth:    authMod,
 		Ticket:  ticketMod,
+		Comment: commentMod,
 	}, nil
 }
 
