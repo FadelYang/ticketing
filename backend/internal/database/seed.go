@@ -46,8 +46,28 @@ type seedComment struct {
 	AgeOffset  time.Duration
 }
 
+// SeedDefaultUsers ensures the 3 default role accounts exist on server startup.
+func SeedDefaultUsers(ctx context.Context, pool *pgxpool.Pool) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin default user seed: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if _, err := ensureDefaultUsers(ctx, tx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit default user seed: %w", err)
+	}
+	return nil
+}
+
 // Seed populates sample tickets and comments using existing users in the database
-// (creating fallback users only if a required role has no existing rows).
+// (creating default users if they do not yet exist).
 func Seed(ctx context.Context, pool *pgxpool.Pool) (*SeedResult, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -86,33 +106,7 @@ func Seed(ctx context.Context, pool *pgxpool.Pool) (*SeedResult, error) {
 	}, nil
 }
 
-func loadOrSeedUsers(ctx context.Context, tx pgx.Tx) (roleUsers, int, error) {
-	var result roleUsers
-
-	rows, err := tx.Query(ctx, `SELECT id, role FROM users ORDER BY created_at ASC`)
-	if err != nil {
-		return result, 0, fmt.Errorf("query existing users: %w", err)
-	}
-	for rows.Next() {
-		var id, role string
-		if err := rows.Scan(&id, &role); err != nil {
-			rows.Close()
-			return result, 0, fmt.Errorf("scan user: %w", err)
-		}
-		switch role {
-		case "requester":
-			result.requesters = append(result.requesters, id)
-		case "agent":
-			result.agents = append(result.agents, id)
-		case "admin":
-			result.admins = append(result.admins, id)
-		}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return result, 0, fmt.Errorf("iterate users: %w", err)
-	}
-
+func ensureDefaultUsers(ctx context.Context, tx pgx.Tx) (int, error) {
 	inserted := 0
 	defaultUsers := []struct {
 		name     string
@@ -147,7 +141,7 @@ func loadOrSeedUsers(ctx context.Context, tx pgx.Tx) (roleUsers, int, error) {
 	for _, u := range defaultUsers {
 		hash, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost)
 		if err != nil {
-			return result, 0, fmt.Errorf("hash password: %w", err)
+			return 0, fmt.Errorf("hash password: %w", err)
 		}
 		tag, err := tx.Exec(
 			ctx,
@@ -157,23 +151,46 @@ func loadOrSeedUsers(ctx context.Context, tx pgx.Tx) (roleUsers, int, error) {
 			u.name, u.email, u.phone, u.role, string(hash),
 		)
 		if err != nil {
-			return result, 0, fmt.Errorf("insert default %s: %w", u.role, err)
+			return 0, fmt.Errorf("insert default %s: %w", u.role, err)
 		}
 		if tag.RowsAffected() > 0 {
 			inserted++
-			var id string
-			if err := tx.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, u.email).Scan(&id); err != nil {
-				return result, 0, fmt.Errorf("lookup default %s: %w", u.role, err)
-			}
-			switch u.role {
-			case "requester":
-				result.requesters = append(result.requesters, id)
-			case "agent":
-				result.agents = append(result.agents, id)
-			case "admin":
-				result.admins = append(result.admins, id)
-			}
 		}
+	}
+
+	return inserted, nil
+}
+
+func loadOrSeedUsers(ctx context.Context, tx pgx.Tx) (roleUsers, int, error) {
+	var result roleUsers
+
+	inserted, err := ensureDefaultUsers(ctx, tx)
+	if err != nil {
+		return result, 0, err
+	}
+
+	rows, err := tx.Query(ctx, `SELECT id, role FROM users ORDER BY created_at ASC`)
+	if err != nil {
+		return result, 0, fmt.Errorf("query existing users: %w", err)
+	}
+	for rows.Next() {
+		var id, role string
+		if err := rows.Scan(&id, &role); err != nil {
+			rows.Close()
+			return result, 0, fmt.Errorf("scan user: %w", err)
+		}
+		switch role {
+		case "requester":
+			result.requesters = append(result.requesters, id)
+		case "agent":
+			result.agents = append(result.agents, id)
+		case "admin":
+			result.admins = append(result.admins, id)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return result, 0, fmt.Errorf("iterate users: %w", err)
 	}
 
 	return result, inserted, nil
