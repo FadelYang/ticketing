@@ -59,7 +59,7 @@ async function handleRegistration() {
   if (ok) {
     created.value = true
     setTimeout(() => {
-      router.push('/')
+      router.push('/tickets')
     }, 600)
   }
 }

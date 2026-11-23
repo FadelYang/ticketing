@@ -34,7 +34,7 @@ async function handleLogin() {
   )
 
   if (ok) {
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tickets'
     await router.push(redirect)
   }
 }

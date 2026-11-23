@@ -1,0 +1,116 @@
+import { computed, reactive, ref } from 'vue'
+import { defineStore } from 'pinia'
+import { ApiError } from '@/services/api'
+import { ticketService } from '@/services/ticketService'
+import type { AuthUser } from '@/types/auth'
+import type { Ticket, TicketPriority, TicketStatus } from '@/types/ticket'
+
+export const useTicketStore = defineStore('tickets', () => {
+  const tickets = ref<Ticket[]>([])
+  const allUsers = ref<AuthUser[]>([])
+  const total = ref(0)
+  const page = ref(1)
+  const limit = ref(10)
+  const totalPages = ref(1)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
+  const filters = reactive<{
+    search: string
+    status: TicketStatus | 'all'
+    priority: TicketPriority | 'all'
+    assigneeId: string
+  }>({
+    search: '',
+    status: 'all',
+    priority: 'all',
+    assigneeId: 'all',
+  })
+
+  const userMap = computed(() => {
+    const map = new Map<string, AuthUser>()
+    for (const u of allUsers.value) {
+      map.set(u.id, u)
+    }
+    return map
+  })
+
+  const assignees = computed(() =>
+    allUsers.value.filter((u) => u.role === 'agent' || u.role === 'admin'),
+  )
+
+  const statusCounts = computed(() => {
+    const counts = {
+      all: tickets.value.length,
+      open: 0,
+      in_progress: 0,
+      resolved: 0,
+      closed: 0,
+    }
+    for (const t of tickets.value) {
+      if (t.status in counts) {
+        counts[t.status]++
+      }
+    }
+    return counts
+  })
+
+  async function fetchUsers() {
+    try {
+      allUsers.value = await ticketService.listUsers()
+    } catch {
+      // Non-blocking: assignee names fall back to IDs if users endpoint fails
+    }
+  }
+
+  async function fetchTickets(targetPage = page.value) {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await ticketService.list({
+        search: filters.search,
+        status: filters.status,
+        priority: filters.priority,
+        assignee_id: filters.assigneeId === 'all' ? undefined : filters.assigneeId,
+        page: targetPage,
+        limit: limit.value,
+      })
+      tickets.value = res.items ?? []
+      total.value = res.total
+      page.value = res.page
+      limit.value = res.limit
+      totalPages.value = Math.max(1, res.total_pages)
+    } catch (err) {
+      error.value = err instanceof ApiError ? err.message : 'Failed to load tickets'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function resetFilters() {
+    filters.search = ''
+    filters.status = 'all'
+    filters.priority = 'all'
+    filters.assigneeId = 'all'
+    page.value = 1
+    return fetchTickets(1)
+  }
+
+  return {
+    tickets,
+    allUsers,
+    assignees,
+    userMap,
+    total,
+    page,
+    limit,
+    totalPages,
+    loading,
+    error,
+    filters,
+    statusCounts,
+    fetchUsers,
+    fetchTickets,
+    resetFilters,
+  }
+})
