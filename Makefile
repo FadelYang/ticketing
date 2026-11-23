@@ -1,5 +1,5 @@
-.PHONY: help migrate-create migrate-up migrate-down migrate-status \
-	docker-up docker-down docker-migrate-up docker-migrate-down docker-migrate-status
+.PHONY: help migrate-create migrate-up migrate-down migrate-status seed \
+	docker-up docker-down docker-migrate-up docker-migrate-down docker-migrate-status docker-seed
 
 MIGRATIONS_DIR := ./migrations
 steps ?= 1
@@ -10,11 +10,13 @@ help:
 	@echo "  make migrate-up                       Apply all pending migrations (local Go + Postgres)"
 	@echo "  make migrate-down [steps=1]           Roll back latest migration(s) (local Go + Postgres)"
 	@echo "  make migrate-status                   Show applied and pending migrations"
+	@echo "  make seed                             Seed sample users, tickets, and comments (local)"
 	@echo "  make docker-up                        Build and start all containers via Docker Compose"
 	@echo "  make docker-down                      Stop and remove Docker Compose containers"
 	@echo "  make docker-migrate-up                Apply pending migrations inside backend container"
 	@echo "  make docker-migrate-down [steps=1]    Roll back migration(s) inside backend container"
 	@echo "  make docker-migrate-status            Show migration status inside backend container"
+	@echo "  make docker-seed                      Seed sample users, tickets, and comments inside container"
 
 migrate-create:
 ifndef name
@@ -31,6 +33,9 @@ migrate-down:
 migrate-status:
 	cd backend && go run ./cmd/migrate -dir $(MIGRATIONS_DIR) status
 
+seed:
+	cd backend && go run ./cmd/seed
+
 docker-up:
 	docker compose up --build
 
@@ -45,3 +50,6 @@ docker-migrate-down:
 
 docker-migrate-status:
 	docker compose exec backend /app/migrate status
+
+docker-seed:
+	docker compose exec backend /app/seed
