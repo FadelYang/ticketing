@@ -6,6 +6,8 @@ import (
 	"net/mail"
 	"strings"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"monorepo/backend/internal/shared/apperror"
 )
 
@@ -42,6 +44,18 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*User, error) 
 		}
 	}
 
+	if strings.TrimSpace(input.Password) != "" {
+		if len(input.Password) < 8 {
+			return nil, fmt.Errorf("%w: password must be at least 8 characters", apperror.ErrValidation)
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("hash password: %w", err)
+		}
+		hashStr := string(hash)
+		input.PasswordHash = &hashStr
+	}
+
 	return u.repo.Create(ctx, input)
 }
 
@@ -76,6 +90,20 @@ func (u *usecase) Update(ctx context.Context, id string, input UpdateInput) (*Us
 	}
 
 	return u.repo.Update(ctx, id, input)
+}
+
+func (u *usecase) UpdateRole(ctx context.Context, id string, role string) (*User, error) {
+	id = strings.TrimSpace(id)
+	role = strings.ToLower(strings.TrimSpace(role))
+
+	if id == "" {
+		return nil, fmt.Errorf("%w: id is required", apperror.ErrValidation)
+	}
+	if !IsValidRole(role) {
+		return nil, fmt.Errorf("%w: role must be one of requester, agent, admin", apperror.ErrValidation)
+	}
+
+	return u.repo.UpdateRole(ctx, id, role)
 }
 
 func (u *usecase) Delete(ctx context.Context, id string) error {

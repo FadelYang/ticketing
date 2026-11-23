@@ -54,7 +54,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 
 	healthMod := health.NewModule(pool)
 	exampleMod := example.NewModule(pool)
-	userMod := user.NewModule(pool)
+	userMod := user.NewModule(pool, cfg.JWTSecret)
 	authMod := auth.NewModule(pool, cfg.JWTSecret, cfg.JWTExpiresIn)
 	ticketMod := ticket.NewModule(pool, userMod.Usecase, cfg.JWTSecret)
 	commentMod := comment.NewModule(pool, ticketMod.Usecase, userMod.Usecase, cfg.JWTSecret)

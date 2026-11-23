@@ -31,6 +31,7 @@ func (r *repository) Create(ctx context.Context, input CreateInput) (*User, erro
 		input.PhoneNumber,
 		input.Role,
 		input.CreatedBy,
+		input.PasswordHash,
 	).Scan(
 		&item.ID,
 		&item.Name,
@@ -131,6 +132,30 @@ func (r *repository) Update(ctx context.Context, id string, input UpdateInput) (
 			return nil, mapped
 		}
 		return nil, fmt.Errorf("update user: %w", err)
+	}
+	return &item, nil
+}
+
+func (r *repository) UpdateRole(ctx context.Context, id string, role string) (*User, error) {
+	var item User
+	err := r.pool.QueryRow(ctx, queryUpdateUserRole, id, role).Scan(
+		&item.ID,
+		&item.Name,
+		&item.Email,
+		&item.PhoneNumber,
+		&item.Role,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.CreatedBy,
+	)
+	if err != nil {
+		if isNotFoundOrInvalidUUID(err) {
+			return nil, apperror.ErrNotFound
+		}
+		if mapped := mapPgWriteError(err); mapped != nil {
+			return nil, mapped
+		}
+		return nil, fmt.Errorf("update user role: %w", err)
 	}
 	return &item, nil
 }

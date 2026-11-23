@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/authStore'
 import { useTicketSocket } from '@/composables/useTicketSocket'
@@ -21,6 +21,7 @@ const emit = defineEmits<{
   'update:searchQuery': [value: string]
 }>()
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
@@ -74,25 +75,27 @@ async function handleLogout() {
         <nav class="hidden md:flex items-center gap-space-lg h-16">
           <RouterLink
             to="/tickets"
-            class="h-full flex items-center px-space-xs transition-colors text-primary border-b-2 border-primary font-semibold"
+            class="h-full flex items-center px-space-xs transition-colors"
+            :class="
+              route.path.startsWith('/tickets')
+                ? 'text-primary border-b-2 border-primary font-semibold'
+                : 'text-on-surface-variant hover:text-on-surface font-body-md text-body-md'
+            "
           >
             Tickets
           </RouterLink>
-          <a
-            v-if="user?.role === 'admin' || user?.role === 'agent'"
-            class="h-full flex items-center text-on-surface-variant hover:text-on-surface font-body-md text-body-md px-space-xs transition-colors"
-            href="#team"
-            @click.prevent
+          <RouterLink
+            v-if="user?.role === 'admin'"
+            to="/team"
+            class="h-full flex items-center px-space-xs transition-colors"
+            :class="
+              route.path.startsWith('/team')
+                ? 'text-primary border-b-2 border-primary font-semibold'
+                : 'text-on-surface-variant hover:text-on-surface font-body-md text-body-md'
+            "
           >
             Team
-          </a>
-          <a
-            class="h-full flex items-center text-on-surface-variant hover:text-on-surface font-body-md text-body-md px-space-xs transition-colors"
-            href="#settings"
-            @click.prevent
-          >
-            Settings
-          </a>
+          </RouterLink>
         </nav>
       </div>
 
@@ -149,7 +152,12 @@ async function handleLogout() {
         <nav class="flex flex-col gap-1">
           <RouterLink
             to="/tickets"
-            class="flex items-center justify-between px-space-md py-space-sm rounded-lg transition-colors bg-primary-container text-on-primary font-semibold shadow-sm"
+            class="flex items-center justify-between px-space-md py-space-sm rounded-lg transition-colors"
+            :class="
+              route.path.startsWith('/tickets')
+                ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-medium'
+            "
           >
             <div class="flex items-center gap-space-sm">
               <BaseIcon name="inbox" class="text-[18px]" />
@@ -160,6 +168,22 @@ async function handleLogout() {
             >
               {{ totalCount }}
             </span>
+          </RouterLink>
+
+          <RouterLink
+            v-if="user?.role === 'admin'"
+            to="/team"
+            class="flex items-center justify-between px-space-md py-space-sm rounded-lg transition-colors"
+            :class="
+              route.path.startsWith('/team')
+                ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-medium'
+            "
+          >
+            <div class="flex items-center gap-space-sm">
+              <BaseIcon name="group" class="text-[18px]" />
+              <span>Team</span>
+            </div>
           </RouterLink>
         </nav>
       </div>

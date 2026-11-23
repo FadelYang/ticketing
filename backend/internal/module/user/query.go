@@ -2,8 +2,8 @@ package user
 
 const (
 	queryCreateUser = `
-		INSERT INTO users (name, email, phonenumber, role, created_by)
-		VALUES ($1, $2, $3, $4, $5::uuid)
+		INSERT INTO users (name, email, phonenumber, role, created_by, password_hash)
+		VALUES ($1, $2, $3, $4, $5::uuid, $6)
 		RETURNING id::text, name, email, phonenumber, role, created_at, updated_at, created_by::text
 	`
 
@@ -26,6 +26,14 @@ const (
 		    email = $3,
 		    phonenumber = $4,
 		    role = COALESCE(NULLIF($5, ''), role),
+		    updated_at = NOW()
+		WHERE id = $1::uuid
+		RETURNING id::text, name, email, phonenumber, role, created_at, updated_at, created_by::text
+	`
+
+	queryUpdateUserRole = `
+		UPDATE users
+		SET role = $2,
 		    updated_at = NOW()
 		WHERE id = $1::uuid
 		RETURNING id::text, name, email, phonenumber, role, created_at, updated_at, created_by::text

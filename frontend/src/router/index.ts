@@ -5,6 +5,8 @@ import RegisterView from '@/views/RegisterView.vue'
 import TicketsView from '@/views/TicketsView.vue'
 import CreateTicketView from '@/views/CreateTicketView.vue'
 import TicketDetailView from '@/views/TicketDetailView.vue'
+import TeamUsersView from '@/views/TeamUsersView.vue'
+import CreateUserView from '@/views/CreateUserView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +34,18 @@ const router = createRouter({
       meta: { hideNavbar: true, requiresAuth: true },
     },
     {
+      path: '/team',
+      name: 'team',
+      component: TeamUsersView,
+      meta: { hideNavbar: true, requiresAuth: true, adminOnly: true },
+    },
+    {
+      path: '/team/new',
+      name: 'team-new',
+      component: CreateUserView,
+      meta: { hideNavbar: true, requiresAuth: true, adminOnly: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,
@@ -54,6 +68,10 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requesterOnly && authStore.user?.role !== 'requester') {
+    return { name: 'tickets' }
+  }
+
+  if (to.meta.adminOnly && authStore.user?.role !== 'admin') {
     return { name: 'tickets' }
   }
 

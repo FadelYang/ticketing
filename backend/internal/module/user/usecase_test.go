@@ -39,6 +39,10 @@ func (m *mockRepo) Update(_ context.Context, _ string, _ user.UpdateInput) (*use
 	return nil, apperror.ErrNotFound
 }
 
+func (m *mockRepo) UpdateRole(_ context.Context, id string, role string) (*user.User, error) {
+	return &user.User{ID: id, Role: role}, nil
+}
+
 func (m *mockRepo) Delete(_ context.Context, _ string) error {
 	return nil
 }
