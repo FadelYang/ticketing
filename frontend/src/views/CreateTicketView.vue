@@ -24,6 +24,13 @@ const category = ref('')
 const priority = ref<TicketPriority>('medium')
 const deadlineLocal = ref('')
 
+function formatLocalDateTimeInput(date: Date): string {
+  const offsetMs = date.getTimezoneOffset() * 60000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
+const minDeadlineLocal = ref(formatLocalDateTimeInput(new Date()))
+
 const categories = [
   'Infrastructure',
   'API & Gateway',
@@ -35,6 +42,7 @@ const categories = [
 
 onMounted(() => {
   ticketStore.clearError()
+  minDeadlineLocal.value = formatLocalDateTimeInput(new Date())
 })
 
 async function handleSubmit() {
@@ -43,6 +51,11 @@ async function handleSubmit() {
   const parsedDeadline = new Date(deadlineLocal.value)
   if (Number.isNaN(parsedDeadline.getTime())) {
     error.value = 'Please select a valid deadline.'
+    return
+  }
+  if (parsedDeadline.getTime() < Date.now()) {
+    minDeadlineLocal.value = formatLocalDateTimeInput(new Date())
+    error.value = 'Deadline cannot be in the past.'
     return
   }
 
@@ -194,6 +207,7 @@ async function handleSubmit() {
                   id="ticket-deadline"
                   v-model="deadlineLocal"
                   type="datetime-local"
+                  :min="minDeadlineLocal"
                   required
                   class="w-full h-10 px-3 rounded-lg bg-surface-container-low text-on-surface font-code-sm text-code-sm focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all"
                 />
