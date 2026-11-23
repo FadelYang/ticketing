@@ -462,6 +462,12 @@ func TestTicketHandler_StatusTransitionRules(t *testing.T) {
 		// resolved -> in_progress (disallowed)
 		{name: "resolved->in_progress disallowed", from: ticket.StatusResolved, assignee: &agent1, to: ticket.StatusInProgress, token: adminToken, wantStatus: http.StatusBadRequest},
 
+		// open -> closed without comment disallowed
+		{name: "open->closed without comment returns 400", from: ticket.StatusOpen, assignee: nil, to: ticket.StatusClosed, token: req1Token, wantStatus: http.StatusBadRequest},
+		{name: "resolved->closed without comment returns 400", from: ticket.StatusResolved, assignee: &agent1, to: ticket.StatusClosed, token: adminToken, wantStatus: http.StatusBadRequest},
+		{name: "resolved->open without comment returns 400", from: ticket.StatusResolved, assignee: &agent1, to: ticket.StatusOpen, token: req1Token, wantStatus: http.StatusBadRequest},
+		{name: "closed->open without comment returns 400", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: req1Token, wantStatus: http.StatusBadRequest},
+
 		// closed -> open (only ticket requester)
 		{name: "closed->open by requester", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: req1Token, wantStatus: http.StatusOK},
 		{name: "closed->open by other requester forbidden", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: req2Token, wantStatus: http.StatusForbidden},
@@ -482,7 +488,12 @@ func TestTicketHandler_StatusTransitionRules(t *testing.T) {
 				DeadlineAt:  deadline,
 			})
 
-			body := []byte(`{"status":"` + tc.to + `"}`)
+			payload := map[string]string{"status": tc.to}
+			needsComment := tc.to == ticket.StatusClosed || (tc.to == ticket.StatusOpen && (tc.from == ticket.StatusResolved || tc.from == ticket.StatusClosed))
+			if needsComment && !strings.Contains(tc.name, "without comment") {
+				payload["comment"] = "Status change comment"
+			}
+			body, _ := json.Marshal(payload)
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/tickets/t-1", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", "Bearer "+tc.token)

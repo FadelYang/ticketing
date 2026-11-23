@@ -25,6 +25,12 @@ func NewModule(pool *pgxpool.Pool, users UserFinder, jwtSecret string) *Module {
 	}
 }
 
+func (m *Module) SetCommentCreator(comments CommentCreator) {
+	if setter, ok := m.Usecase.(interface{ SetCommentCreator(CommentCreator) }); ok {
+		setter.SetCommentCreator(comments)
+	}
+}
+
 func (m *Module) RegisterRoutes(router fiber.Router) {
 	group := router.Group("/tickets")
 	group.Get("/", middleware.RequireAuth(m.jwtSecret), m.handler.List)

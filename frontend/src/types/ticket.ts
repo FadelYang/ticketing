@@ -47,6 +47,7 @@ export interface PatchTicketPayload {
   priority?: TicketPriority
   status?: TicketStatus
   assignee_id?: string | null
+  comment?: string
 }
 
 export interface TicketComment {

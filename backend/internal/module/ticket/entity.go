@@ -108,10 +108,15 @@ type PatchInput struct {
 	Priority   *string `json:"priority"`
 	Status     *string `json:"status"`
 	AssigneeID *string `json:"assignee_id"`
+	Comment    *string `json:"comment"`
 }
 
 type UserFinder interface {
 	GetByID(ctx context.Context, id string) (*user.User, error)
+}
+
+type CommentCreator interface {
+	CreateForTicket(ctx context.Context, actorID, actorRole, ticketID, body string) error
 }
 
 type Repository interface {

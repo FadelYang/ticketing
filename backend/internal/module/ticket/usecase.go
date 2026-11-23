@@ -12,8 +12,9 @@ import (
 )
 
 type usecase struct {
-	repo  Repository
-	users UserFinder
+	repo     Repository
+	users    UserFinder
+	comments CommentCreator
 }
 
 func NewUsecase(repo Repository, users UserFinder) Usecase {
@@ -21,6 +22,10 @@ func NewUsecase(repo Repository, users UserFinder) Usecase {
 		repo:  repo,
 		users: users,
 	}
+}
+
+func (u *usecase) SetCommentCreator(comments CommentCreator) {
+	u.comments = comments
 }
 
 func (u *usecase) Create(ctx context.Context, input CreateInput) (*Ticket, error) {
@@ -154,6 +159,7 @@ func (u *usecase) Patch(ctx context.Context, id string, actorID string, actorRol
 		}
 		merged.AssigneeID = nextAssignee
 	}
+	var statusComment *string
 	if input.Status != nil {
 		merged.Status = normalizeStatus(*input.Status)
 		if !IsValidStatus(merged.Status) {
@@ -161,6 +167,17 @@ func (u *usecase) Patch(ctx context.Context, id string, actorID string, actorRol
 		}
 		if err := validateStatusTransition(existing.Status, merged.Status, actorID, actorRole, existing.RequesterID, merged.AssigneeID); err != nil {
 			return nil, err
+		}
+		isClosing := merged.Status == StatusClosed && existing.Status != StatusClosed
+		isReopening := merged.Status == StatusOpen && (existing.Status == StatusResolved || existing.Status == StatusClosed)
+		if isClosing || isReopening {
+			statusComment = trimOptionalString(input.Comment)
+			if statusComment == nil {
+				if isClosing {
+					return nil, fmt.Errorf("%w: comment is required when closing a ticket", apperror.ErrValidation)
+				}
+				return nil, fmt.Errorf("%w: comment is required when reopening a ticket", apperror.ErrValidation)
+			}
 		}
 	}
 
@@ -171,7 +188,18 @@ func (u *usecase) Patch(ctx context.Context, id string, actorID string, actorRol
 		return nil, err
 	}
 
-	return u.repo.Update(ctx, id, merged)
+	updated, err := u.repo.Update(ctx, id, merged)
+	if err != nil {
+		return nil, err
+	}
+
+	if statusComment != nil && u.comments != nil {
+		if err := u.comments.CreateForTicket(ctx, actorID, actorRole, id, *statusComment); err != nil {
+			return nil, err
+		}
+	}
+
+	return updated, nil
 }
 
 func validateStatusTransition(fromStatus, toStatus, actorID, actorRole, requesterID string, assigneeID *string) error {

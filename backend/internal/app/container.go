@@ -53,6 +53,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	authMod := auth.NewModule(pool, cfg.JWTSecret, cfg.JWTExpiresIn)
 	ticketMod := ticket.NewModule(pool, userMod.Usecase, cfg.JWTSecret)
 	commentMod := comment.NewModule(pool, ticketMod.Usecase, userMod.Usecase, cfg.JWTSecret)
+	ticketMod.SetCommentCreator(commentCreatorAdapter{uc: commentMod.Usecase})
 
 	// If a new module needs another module's usecase, pass it directly:
 	// orderMod := order.NewModule(pool, exampleMod.Usecase)
@@ -84,4 +85,16 @@ func (c *Container) Close() {
 	if c.DB != nil {
 		c.DB.Close()
 	}
+}
+
+type commentCreatorAdapter struct {
+	uc comment.Usecase
+}
+
+func (a commentCreatorAdapter) CreateForTicket(ctx context.Context, actorID, actorRole, ticketID, body string) error {
+	_, err := a.uc.Create(ctx, actorID, actorRole, comment.CreateInput{
+		TicketID: ticketID,
+		Body:     body,
+	})
+	return err
 }
