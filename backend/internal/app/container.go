@@ -42,6 +42,11 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
+	if err := database.SeedDefaultUsers(ctx, pool); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("seed default users: %w", err)
+	}
+
 	healthMod := health.NewModule(pool)
 	exampleMod := example.NewModule(pool)
 	userMod := user.NewModule(pool)
