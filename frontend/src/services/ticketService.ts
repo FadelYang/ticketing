@@ -10,6 +10,7 @@ import type {
   TicketComment,
   TicketFilter,
   TicketListResult,
+  TicketStatusCounts,
 } from '@/types/ticket'
 
 export const ticketService = {
@@ -27,6 +28,20 @@ export const ticketService = {
 
     const qs = params.toString()
     return apiRequest<TicketListResult>(`/tickets/${qs ? `?${qs}` : ''}`)
+  },
+
+  getStatusCounts(
+    filter: Omit<TicketFilter, 'status' | 'page' | 'limit' | 'sort'> = {},
+  ): Promise<TicketStatusCounts> {
+    const params = new URLSearchParams()
+    if (filter.search?.trim()) params.set('search', filter.search.trim())
+    if (filter.priority && filter.priority !== 'all') params.set('priority', filter.priority)
+    if (filter.assignee_id && filter.assignee_id !== 'all') {
+      params.set('assignee_id', filter.assignee_id)
+    }
+
+    const qs = params.toString()
+    return apiRequest<TicketStatusCounts>(`/tickets/counts${qs ? `?${qs}` : ''}`)
   },
 
   getById(id: string): Promise<Ticket> {

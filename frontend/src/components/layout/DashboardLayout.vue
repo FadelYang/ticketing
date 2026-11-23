@@ -61,7 +61,7 @@ async function handleLogout() {
             <BaseIcon name="confirmation_number" class="text-on-primary text-[20px]" />
           </div>
           <span class="font-headline-md text-headline-md text-on-surface tracking-tight font-bold">
-            DeskFlow
+            Simple Ticketing
           </span>
         </RouterLink>
 

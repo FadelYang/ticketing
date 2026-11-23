@@ -38,9 +38,17 @@ const pageTitle = computed(() => (isRequester.value ? 'My Tickets' : 'Tickets'))
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(
-  () => [filters.value.status, filters.value.priority, filters.value.assigneeId],
+  () => filters.value.status,
   () => {
     ticketStore.fetchTickets(1)
+  },
+)
+
+watch(
+  () => [filters.value.priority, filters.value.assigneeId],
+  () => {
+    ticketStore.fetchTickets(1)
+    ticketStore.fetchStatusCounts()
   },
 )
 
@@ -50,6 +58,7 @@ watch(
     if (searchTimer) clearTimeout(searchTimer)
     searchTimer = setTimeout(() => {
       ticketStore.fetchTickets(1)
+      ticketStore.fetchStatusCounts()
     }, 250)
   },
 )
@@ -57,6 +66,7 @@ watch(
 onMounted(() => {
   ticketStore.fetchUsers()
   ticketStore.fetchTickets(1)
+  ticketStore.fetchStatusCounts()
 })
 
 function handleSelectTicket(ticket: Ticket) {
@@ -69,7 +79,7 @@ function handleNewTicket() {
 </script>
 
 <template>
-  <DashboardLayout v-model:search-query="filters.search" :total-count="total">
+  <DashboardLayout v-model:search-query="filters.search" :total-count="statusCounts.all">
     <div class="flex flex-col w-full gap-space-lg">
       <!-- Operational Header -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md">

@@ -80,6 +80,45 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	return response.Success(c, fiber.StatusOK, result)
 }
 
+func (h *Handler) StatusCounts(c *fiber.Ctx) error {
+	userID, _ := c.Locals(middleware.ContextUserIDKey).(string)
+	userRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)
+
+	search := c.Query("search")
+	if search == "" {
+		search = c.Query("title")
+	}
+
+	assigneeID := c.Query("assignee")
+	if assigneeID == "" {
+		assigneeID = c.Query("assignee_id")
+	}
+
+	filter := Filter{
+		Search:      search,
+		Priority:    c.Query("priority"),
+		Category:    c.Query("category"),
+		RequesterID: c.Query("requester_id"),
+		AssigneeID:  assigneeID,
+	}
+
+	switch strings.ToLower(strings.TrimSpace(userRole)) {
+	case user.RoleRequester:
+		filter.RequesterID = userID
+	case user.RoleAgent, user.RoleAdmin:
+		// Agents and admins can view counts across all tickets.
+	default:
+		return response.Forbidden(c, "insufficient permissions")
+	}
+
+	counts, err := h.usecase.CountByStatus(c.UserContext(), filter)
+	if err != nil {
+		return response.Error(c, err)
+	}
+
+	return response.Success(c, fiber.StatusOK, counts)
+}
+
 func (h *Handler) GetByID(c *fiber.Ctx) error {
 	userID, _ := c.Locals(middleware.ContextUserIDKey).(string)
 	userRole, _ := c.Locals(middleware.ContextUserRoleKey).(string)

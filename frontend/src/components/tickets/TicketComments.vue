@@ -17,18 +17,32 @@ interface Props {
   requesterId: string
   userMap: Map<string, AuthUser>
   currentUser: AuthUser | null
+  draft?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  draft: '',
+})
 
 const emit = defineEmits<{
   submit: [payload: CreateCommentPayload]
   'update:sort': [sort: 'oldest' | 'newest']
+  'update:draft': [value: string]
   'load-more': []
 }>()
 
-const draftBody = ref('')
+const internalDraft = ref('')
 const isInternal = ref(false)
+const composerTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const composerContainerRef = ref<HTMLDivElement | null>(null)
+
+const draftBody = computed({
+  get: () => (props.draft !== undefined ? props.draft : internalDraft.value),
+  set: (val: string) => {
+    internalDraft.value = val
+    emit('update:draft', val)
+  },
+})
 
 const canCreateInternal = computed(
   () => props.currentUser?.role === 'admin' || props.currentUser?.role === 'agent',
@@ -101,7 +115,12 @@ function resetComposer() {
   isInternal.value = false
 }
 
-defineExpose({ resetComposer })
+function focusComposer() {
+  composerContainerRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  composerTextareaRef.value?.focus()
+}
+
+defineExpose({ resetComposer, focusComposer })
 </script>
 
 <template>
@@ -266,7 +285,7 @@ defineExpose({ resetComposer })
       </div>
 
       <!-- PR-Style Comment Composer -->
-      <div class="relative flex items-start gap-space-md pt-space-xs">
+      <div ref="composerContainerRef" class="relative flex items-start gap-space-md pt-space-xs">
         <div
           class="hidden sm:flex relative z-10 w-10 h-10 rounded-full border items-center justify-center shrink-0 font-label-sm text-label-sm font-bold shadow-xs"
           :class="getAvatarClass(currentUser?.role ?? null, isInternal)"
@@ -297,6 +316,7 @@ defineExpose({ resetComposer })
             <BaseAlert v-if="submitError" variant="error" :message="submitError" />
 
             <textarea
+              ref="composerTextareaRef"
               v-model="draftBody"
               rows="4"
               placeholder="Leave a comment..."

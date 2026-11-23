@@ -82,6 +82,14 @@ type ListResult struct {
 	TotalPages int      `json:"total_pages"`
 }
 
+type StatusCounts struct {
+	All        int64 `json:"all"`
+	Open       int64 `json:"open"`
+	InProgress int64 `json:"in_progress"`
+	Resolved   int64 `json:"resolved"`
+	Closed     int64 `json:"closed"`
+}
+
 type CreateInput struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
@@ -123,6 +131,7 @@ type Repository interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	FindByID(ctx context.Context, id string) (*Ticket, error)
 	FindAll(ctx context.Context, filter Filter) (*ListResult, error)
+	CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
 	Delete(ctx context.Context, id string) error
 }
@@ -131,6 +140,7 @@ type Usecase interface {
 	Create(ctx context.Context, input CreateInput) (*Ticket, error)
 	GetByID(ctx context.Context, id string) (*Ticket, error)
 	List(ctx context.Context, filter Filter) (*ListResult, error)
+	CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error)
 	Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error)
 	Patch(ctx context.Context, id string, actorID string, actorRole string, input PatchInput) (*Ticket, error)
 	Delete(ctx context.Context, id string) error

@@ -39,21 +39,30 @@ export const useTicketStore = defineStore('tickets', () => {
     allUsers.value.filter((u) => u.role === 'agent' || u.role === 'admin'),
   )
 
-  const statusCounts = computed(() => {
-    const counts = {
-      all: tickets.value.length,
-      open: 0,
-      in_progress: 0,
-      resolved: 0,
-      closed: 0,
-    }
-    for (const t of tickets.value) {
-      if (t.status in counts) {
-        counts[t.status]++
-      }
-    }
-    return counts
+  const statusCounts = reactive<Record<TicketStatus | 'all', number>>({
+    all: 0,
+    open: 0,
+    in_progress: 0,
+    resolved: 0,
+    closed: 0,
   })
+
+  async function fetchStatusCounts() {
+    try {
+      const counts = await ticketService.getStatusCounts({
+        search: filters.search,
+        priority: filters.priority,
+        assignee_id: filters.assigneeId === 'all' ? undefined : filters.assigneeId,
+      })
+      statusCounts.all = counts.all
+      statusCounts.open = counts.open
+      statusCounts.in_progress = counts.in_progress
+      statusCounts.resolved = counts.resolved
+      statusCounts.closed = counts.closed
+    } catch {
+      // Non-blocking: keep previous counts if count refresh fails
+    }
+  }
 
   async function fetchUsers() {
     try {
@@ -111,7 +120,7 @@ export const useTicketStore = defineStore('tickets', () => {
     filters.priority = 'all'
     filters.assigneeId = 'all'
     page.value = 1
-    return fetchTickets(1)
+    return Promise.all([fetchTickets(1), fetchStatusCounts()])
   }
 
   return {
@@ -129,6 +138,7 @@ export const useTicketStore = defineStore('tickets', () => {
     statusCounts,
     fetchUsers,
     fetchTickets,
+    fetchStatusCounts,
     createTicket,
     clearError,
     resetFilters,

@@ -45,6 +45,10 @@ func (m *mockTicketRepo) FindAll(_ context.Context, filter ticket.Filter) (*tick
 	}, nil
 }
 
+func (m *mockTicketRepo) CountByStatus(_ context.Context, _ ticket.Filter) (*ticket.StatusCounts, error) {
+	return &ticket.StatusCounts{}, nil
+}
+
 func (m *mockTicketRepo) Update(_ context.Context, id string, input ticket.UpdateInput) (*ticket.Ticket, error) {
 	now := time.Now()
 	status := input.Status

@@ -24,6 +24,17 @@ const (
 		  AND ($6 = '' OR assignee_id = NULLIF($6, '')::uuid)
 	`
 
+	queryCountTicketsByStatus = `
+		SELECT status, COUNT(*)
+		FROM tickets
+		WHERE ($1 = '' OR title ILIKE '%' || $1 || '%')
+		  AND ($2 = '' OR priority = $2)
+		  AND ($3 = '' OR category = $3)
+		  AND ($4 = '' OR requester_id = NULLIF($4, '')::uuid)
+		  AND ($5 = '' OR assignee_id = NULLIF($5, '')::uuid)
+		GROUP BY status
+	`
+
 	queryListTicketsNewest = `
 		SELECT id::text, title, description, category, priority, status, requester_id::text, assignee_id::text, created_at, updated_at, deadline_at
 		FROM tickets

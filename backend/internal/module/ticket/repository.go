@@ -164,6 +164,51 @@ func (r *repository) FindAll(ctx context.Context, filter Filter) (*ListResult, e
 	}, nil
 }
 
+func (r *repository) CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		queryCountTicketsByStatus,
+		filter.Search,
+		filter.Priority,
+		filter.Category,
+		filter.RequesterID,
+		filter.AssigneeID,
+	)
+	if err != nil {
+		if isInvalidUUID(err) {
+			return nil, fmt.Errorf("%w: invalid uuid filter", apperror.ErrValidation)
+		}
+		return nil, fmt.Errorf("count tickets by status: %w", err)
+	}
+	defer rows.Close()
+
+	counts := &StatusCounts{}
+	for rows.Next() {
+		var status string
+		var count int64
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scan ticket status count: %w", err)
+		}
+		switch status {
+		case StatusOpen:
+			counts.Open = count
+		case StatusInProgress:
+			counts.InProgress = count
+		case StatusResolved:
+			counts.Resolved = count
+		case StatusClosed:
+			counts.Closed = count
+		}
+		counts.All += count
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate ticket status count rows: %w", err)
+	}
+
+	return counts, nil
+}
+
 func (r *repository) Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error) {
 	var item Ticket
 	err := r.pool.QueryRow(

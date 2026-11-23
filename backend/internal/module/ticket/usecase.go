@@ -98,6 +98,20 @@ func (u *usecase) List(ctx context.Context, filter Filter) (*ListResult, error) 
 	return u.repo.FindAll(ctx, filter)
 }
 
+func (u *usecase) CountByStatus(ctx context.Context, filter Filter) (*StatusCounts, error) {
+	filter.Search = strings.TrimSpace(filter.Search)
+	filter.Priority = strings.ToLower(strings.TrimSpace(filter.Priority))
+	filter.Category = strings.TrimSpace(filter.Category)
+	filter.RequesterID = strings.TrimSpace(filter.RequesterID)
+	filter.AssigneeID = strings.TrimSpace(filter.AssigneeID)
+
+	if filter.Priority != "" && !IsValidPriority(filter.Priority) {
+		return nil, fmt.Errorf("%w: priority must be one of low, medium, high, urgent", apperror.ErrValidation)
+	}
+
+	return u.repo.CountByStatus(ctx, filter)
+}
+
 func (u *usecase) Update(ctx context.Context, id string, input UpdateInput) (*Ticket, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {

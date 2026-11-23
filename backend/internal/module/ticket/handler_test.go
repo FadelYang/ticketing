@@ -90,6 +90,36 @@ func (m *handlerMockRepo) FindAll(_ context.Context, filter ticket.Filter) (*tic
 	}, nil
 }
 
+func (m *handlerMockRepo) CountByStatus(_ context.Context, filter ticket.Filter) (*ticket.StatusCounts, error) {
+	counts := &ticket.StatusCounts{}
+	for _, t := range m.tickets {
+		if filter.Search != "" && !strings.Contains(strings.ToLower(t.Title), strings.ToLower(filter.Search)) {
+			continue
+		}
+		if filter.Priority != "" && t.Priority != filter.Priority {
+			continue
+		}
+		if filter.RequesterID != "" && t.RequesterID != filter.RequesterID {
+			continue
+		}
+		if filter.AssigneeID != "" && (t.AssigneeID == nil || *t.AssigneeID != filter.AssigneeID) {
+			continue
+		}
+		switch t.Status {
+		case ticket.StatusOpen:
+			counts.Open++
+		case ticket.StatusInProgress:
+			counts.InProgress++
+		case ticket.StatusResolved:
+			counts.Resolved++
+		case ticket.StatusClosed:
+			counts.Closed++
+		}
+		counts.All++
+	}
+	return counts, nil
+}
+
 func (m *handlerMockRepo) Update(_ context.Context, id string, input ticket.UpdateInput) (*ticket.Ticket, error) {
 	for i, t := range m.tickets {
 		if t.ID == id {
@@ -130,6 +160,7 @@ func setupTicketTestApp() (*fiber.App, string) {
 	app := fiber.New()
 	group := app.Group("/api/v1/tickets")
 	group.Get("/", middleware.RequireAuth(secret), h.List)
+	group.Get("/counts", middleware.RequireAuth(secret), h.StatusCounts)
 	group.Get("/:id", middleware.RequireAuth(secret), h.GetByID)
 	group.Patch("/:id", middleware.RequireAuth(secret), h.Patch)
 
@@ -171,6 +202,50 @@ func TestTicketHandler_GetRules(t *testing.T) {
 		}
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("status counts scopes requester to own tickets and returns all for agent", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/tickets/counts", nil)
+		req.Header.Set("Authorization", "Bearer "+req1Token)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", resp.StatusCode)
+		}
+
+		var body struct {
+			Success bool                `json:"success"`
+			Data    ticket.StatusCounts `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if body.Data.All != 1 || body.Data.Open != 1 {
+			t.Fatalf("expected req-1 counts all=1 open=1, got %+v", body.Data)
+		}
+
+		reqAll := httptest.NewRequest(http.MethodGet, "/api/v1/tickets/counts", nil)
+		reqAll.Header.Set("Authorization", "Bearer "+agentToken)
+		respAll, err := app.Test(reqAll)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if respAll.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", respAll.StatusCode)
+		}
+
+		var bodyAll struct {
+			Success bool                `json:"success"`
+			Data    ticket.StatusCounts `json:"data"`
+		}
+		if err := json.NewDecoder(respAll.Body).Decode(&bodyAll); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if bodyAll.Data.All != 2 || bodyAll.Data.Open != 2 {
+			t.Fatalf("expected agent counts all=2 open=2, got %+v", bodyAll.Data)
 		}
 	})
 

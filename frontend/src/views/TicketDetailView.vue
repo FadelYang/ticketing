@@ -46,9 +46,7 @@ const commentsError = ref<string | null>(null)
 const commentSubmitError = ref<string | null>(null)
 const commentsRef = ref<InstanceType<typeof TicketComments> | null>(null)
 
-const pendingStatusAction = ref<'closed' | 'open' | null>(null)
-const statusComment = ref('')
-const statusCommentError = ref<string | null>(null)
+const commentDraft = ref('')
 
 const isAdmin = computed(() => user.value?.role === 'admin')
 const canEditPriority = computed(
@@ -290,72 +288,36 @@ async function handleStatusChange(nextStatus: TicketStatus) {
     nextStatus === 'open' &&
     (ticket.value.status === 'resolved' || ticket.value.status === 'closed')
 
-  if (isClosing || isReopening) {
-    pendingStatusAction.value = nextStatus
-    statusComment.value = ''
-    statusCommentError.value = null
+  const trimmedComment = commentDraft.value.trim()
+
+  if ((isClosing || isReopening) && !trimmedComment) {
+    const msg = isClosing
+      ? 'Please fill in the comment form before closing the ticket.'
+      : 'Please fill in the comment form before reopening the ticket.'
+    actionError.value = msg
+    commentSubmitError.value = msg
+    commentsRef.value?.focusComposer()
     return
   }
 
   updating.value = true
   actionError.value = null
   actionSuccess.value = null
+  commentSubmitError.value = null
 
   try {
     const updated = await ticketService.patch(ticket.value.id, {
       status: nextStatus,
+      ...(isClosing || isReopening ? { comment: trimmedComment } : {}),
     })
     ticket.value = updated
+    if (isClosing || isReopening) {
+      commentsRef.value?.resetComposer()
+      await fetchComments(ticket.value.id, 1, false)
+    }
     actionSuccess.value = `Status updated to ${statusBadgeMap[updated.status].label.replace('Status: ', '')}.`
   } catch (err) {
     actionError.value = err instanceof ApiError ? err.message : 'Failed to update status.'
-  } finally {
-    updating.value = false
-  }
-}
-
-function cancelStatusCommentModal() {
-  if (updating.value) return
-  pendingStatusAction.value = null
-  statusComment.value = ''
-  statusCommentError.value = null
-}
-
-async function confirmStatusCommentAction() {
-  if (!ticket.value || !pendingStatusAction.value) return
-  const nextStatus = pendingStatusAction.value
-  const trimmed = statusComment.value.trim()
-  if (!trimmed) {
-    statusCommentError.value =
-      nextStatus === 'closed'
-        ? 'Please leave a comment before closing the ticket.'
-        : 'Please leave a comment before reopening the ticket.'
-    return
-  }
-
-  updating.value = true
-  statusCommentError.value = null
-  actionError.value = null
-  actionSuccess.value = null
-
-  try {
-    const updated = await ticketService.patch(ticket.value.id, {
-      status: nextStatus,
-      comment: trimmed,
-    })
-    ticket.value = updated
-    pendingStatusAction.value = null
-    statusComment.value = ''
-    actionSuccess.value =
-      nextStatus === 'closed' ? 'Ticket closed successfully.' : 'Ticket reopened successfully.'
-    await fetchComments(ticket.value.id, 1, false)
-  } catch (err) {
-    statusCommentError.value =
-      err instanceof ApiError
-        ? err.message
-        : nextStatus === 'closed'
-          ? 'Failed to close ticket.'
-          : 'Failed to reopen ticket.'
   } finally {
     updating.value = false
   }
@@ -588,6 +550,7 @@ async function confirmStatusCommentAction() {
       <TicketComments
         v-if="ticket"
         ref="commentsRef"
+        v-model:draft="commentDraft"
         :comments="comments"
         :total="commentsTotal"
         :loading="commentsLoading"
@@ -603,96 +566,6 @@ async function confirmStatusCommentAction() {
         @update:sort="handleCommentSortChange"
         @load-more="handleLoadMoreComments"
       />
-
-      <!-- Close / Reopen Ticket Comment Modal -->
-      <div
-        v-if="pendingStatusAction"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/40 backdrop-blur-xs p-space-lg"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="status-comment-modal-title"
-      >
-        <div
-          class="w-full max-w-lg rounded-xl bg-surface-container-lowest border border-outline-variant/60 shadow-xl overflow-hidden"
-        >
-          <div
-            class="px-space-xl py-space-md bg-surface-container-low border-b border-outline-variant/50 flex items-center justify-between"
-          >
-            <h3
-              id="status-comment-modal-title"
-              class="font-headline-md text-headline-md text-on-surface font-semibold"
-            >
-              {{ pendingStatusAction === 'closed' ? 'Close Ticket' : 'Reopen Ticket' }}
-            </h3>
-            <button
-              type="button"
-              :disabled="updating"
-              class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer disabled:opacity-50"
-              aria-label="Cancel"
-              @click="cancelStatusCommentModal"
-            >
-              <BaseIcon name="close" class="text-[20px]" />
-            </button>
-          </div>
-
-          <form
-            class="p-space-xl flex flex-col gap-space-md"
-            @submit.prevent="confirmStatusCommentAction"
-          >
-            <p class="font-body-md text-body-md text-on-surface-variant">
-              {{
-                pendingStatusAction === 'closed'
-                  ? 'Please leave a comment explaining why this ticket is being closed.'
-                  : 'Please leave a comment explaining why this ticket is being reopened.'
-              }}
-            </p>
-
-            <BaseAlert v-if="statusCommentError" variant="error" :message="statusCommentError" />
-
-            <textarea
-              v-model="statusComment"
-              rows="4"
-              required
-              :placeholder="
-                pendingStatusAction === 'closed'
-                  ? 'Write your closing comment...'
-                  : 'Write your reopening comment...'
-              "
-              :disabled="updating"
-              class="w-full p-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all resize-y disabled:opacity-60"
-            />
-
-            <div class="flex items-center justify-end gap-space-sm pt-space-xs">
-              <button
-                type="button"
-                :disabled="updating"
-                class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-all cursor-pointer disabled:opacity-60"
-                @click="cancelStatusCommentModal"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                :disabled="updating || !statusComment.trim()"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <BaseIcon v-if="updating" name="progress_activity" class="text-[16px] animate-spin" />
-                <span>
-                  {{
-                    updating
-                      ? pendingStatusAction === 'closed'
-                        ? 'Closing...'
-                        : 'Reopening...'
-                      : pendingStatusAction === 'closed'
-                        ? 'Close Ticket'
-                        : 'Reopen Ticket'
-                  }}
-                </span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
     </div>
   </DashboardLayout>
 </template>

@@ -23,6 +23,8 @@ export interface TicketListResult {
   total_pages: number
 }
 
+export type TicketStatusCounts = Record<TicketStatus | 'all', number>
+
 export interface TicketFilter {
   search?: string
   status?: TicketStatus | 'all'
