@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useHealth } from '@/composables/useHealth'
+import { useAuthStore } from '@/stores/authStore'
+import BaseBadge from '@/components/common/BaseBadge.vue'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const { user, isAuthenticated } = storeToRefs(authStore)
 
 const { status, database, refresh } = useHealth()
 
@@ -15,6 +23,11 @@ const dotClass = computed(() => {
   if (status.value === 'checking') return 'bg-amber-400 animate-pulse'
   return 'bg-rose-500'
 })
+
+async function handleLogout() {
+  await authStore.logout()
+  await router.push('/login')
+}
 </script>
 
 <template>
@@ -33,7 +46,19 @@ const dotClass = computed(() => {
       </RouterLink>
 
       <div class="flex items-center gap-3">
-        <nav class="flex items-center gap-2 text-xs font-medium">
+        <nav v-if="isAuthenticated && user" class="flex items-center gap-2.5 text-xs">
+          <span class="font-medium text-on-surface">{{ user.name }}</span>
+          <BaseBadge tone="blue">{{ user.role }}</BaseBadge>
+          <button
+            type="button"
+            class="cursor-pointer rounded-lg border border-outline-variant/60 px-2.5 py-1.5 font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"
+            @click="handleLogout"
+          >
+            Logout
+          </button>
+        </nav>
+
+        <nav v-else class="flex items-center gap-2 text-xs font-medium">
           <RouterLink
             to="/login"
             class="rounded-lg px-2.5 py-1.5 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"

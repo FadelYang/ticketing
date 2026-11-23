@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/authStore'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import AuthCard from '@/components/auth/AuthCard.vue'
+import BaseAlert from '@/components/common/BaseAlert.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseIcon from '@/components/common/BaseIcon.vue'
 import PasswordStrengthMeter from '@/components/common/PasswordStrengthMeter.vue'
 
+const router = useRouter()
+const authStore = useAuthStore()
+const { loading, error } = storeToRefs(authStore)
+
+const name = ref('')
 const email = ref('')
+const phonenumber = ref('')
 const password = ref('')
 const confirmPassword = ref('')
-const status = ref<'idle' | 'submitting' | 'created'>('idle')
+const created = ref(false)
 const mismatchError = ref('')
 
 const strengthRef = ref<InstanceType<typeof PasswordStrengthMeter> | null>(null)
@@ -26,18 +36,32 @@ const matchStatus = computed(() => {
   return { text: 'MISMATCH', className: 'text-error font-medium' }
 })
 
-function handleRegistration() {
+onMounted(() => {
+  authStore.clearError()
+})
+
+async function handleRegistration() {
   mismatchError.value = ''
+  authStore.clearError()
+
   if (password.value !== confirmPassword.value) {
     mismatchError.value = 'Passwords do not match. Please verify your credentials.'
     return
   }
 
-  status.value = 'submitting'
-  // UI-only preview state until auth API is wired
-  setTimeout(() => {
-    status.value = 'created'
-  }, 1200)
+  const ok = await authStore.register({
+    name: name.value,
+    email: email.value,
+    phonenumber: phonenumber.value,
+    password: password.value,
+  })
+
+  if (ok) {
+    created.value = true
+    setTimeout(() => {
+      router.push('/')
+    }, 600)
+  }
 }
 </script>
 
@@ -61,6 +85,24 @@ function handleRegistration() {
       </template>
 
       <form class="flex flex-col space-y-space-md" @submit.prevent="handleRegistration">
+        <BaseAlert v-if="error" variant="error" :message="error" />
+
+        <BaseInput
+          id="fullName"
+          v-model="name"
+          label="Full Name"
+          type="text"
+          placeholder="Jane Doe"
+          autocomplete="name"
+          leading-icon="person"
+          surface="lowest"
+          required
+        >
+          <template #header-right>
+            <span class="font-code-sm text-code-sm text-outline">REQUIRED</span>
+          </template>
+        </BaseInput>
+
         <BaseInput
           id="workEmail"
           v-model="email"
@@ -69,6 +111,22 @@ function handleRegistration() {
           placeholder="name@company.com"
           autocomplete="email"
           leading-icon="mail"
+          surface="lowest"
+          required
+        >
+          <template #header-right>
+            <span class="font-code-sm text-code-sm text-outline">REQUIRED</span>
+          </template>
+        </BaseInput>
+
+        <BaseInput
+          id="phoneNumber"
+          v-model="phonenumber"
+          label="Phone Number"
+          type="tel"
+          placeholder="+1 555 010 9999"
+          autocomplete="tel"
+          leading-icon="call"
           surface="lowest"
           required
         >
@@ -143,14 +201,14 @@ function handleRegistration() {
           <BaseButton
             type="submit"
             block
-            :variant="status === 'created' ? 'success' : 'primary'"
-            :loading="status === 'submitting'"
-            :disabled="status === 'created'"
+            :variant="created ? 'success' : 'primary'"
+            :loading="loading"
+            :disabled="created"
           >
-            <template v-if="status === 'submitting'">
+            <template v-if="loading">
               <span>Provisioning Account...</span>
             </template>
-            <template v-else-if="status === 'created'">
+            <template v-else-if="created">
               <BaseIcon name="check_circle" class="text-headline-sm" />
               <span>Account Created</span>
             </template>

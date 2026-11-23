@@ -6,7 +6,7 @@ interface Props {
   modelValue: string
   id: string
   label?: string
-  type?: 'text' | 'email' | 'password' | 'search' | 'url'
+  type?: 'text' | 'email' | 'password' | 'search' | 'url' | 'tel'
   placeholder?: string
   autocomplete?: string
   required?: boolean

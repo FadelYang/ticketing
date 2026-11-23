@@ -1,23 +1,42 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/authStore'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import AuthCard from '@/components/auth/AuthCard.vue'
+import BaseAlert from '@/components/common/BaseAlert.vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
 import BaseIcon from '@/components/common/BaseIcon.vue'
 
+const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+const { loading, error } = storeToRefs(authStore)
+
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(false)
-const submitting = ref(false)
 
-function handleLogin() {
-  submitting.value = true
-  // UI-only preview state until auth API is wired
-  setTimeout(() => {
-    submitting.value = false
-  }, 800)
+onMounted(() => {
+  authStore.clearError()
+})
+
+async function handleLogin() {
+  const ok = await authStore.login(
+    {
+      email: email.value,
+      password: password.value,
+    },
+    rememberMe.value,
+  )
+
+  if (ok) {
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.push(redirect)
+  }
 }
 </script>
 
@@ -31,6 +50,8 @@ function handleLogin() {
       footer-variant="plain"
     >
       <form class="flex flex-col gap-space-lg" @submit.prevent="handleLogin">
+        <BaseAlert v-if="error" variant="error" :message="error" />
+
         <BaseInput
           id="work-email"
           v-model="email"
@@ -66,9 +87,9 @@ function handleLogin() {
           <BaseCheckbox id="remember-me" v-model="rememberMe" label="Remember me for 30 days" />
         </div>
 
-        <BaseButton type="submit" block :loading="submitting" class="mt-space-sm">
-          <span>{{ submitting ? 'Signing In...' : 'Sign In' }}</span>
-          <BaseIcon v-if="!submitting" name="arrow_forward" class="text-base" />
+        <BaseButton type="submit" block :loading="loading" class="mt-space-sm">
+          <span>{{ loading ? 'Signing In...' : 'Sign In' }}</span>
+          <BaseIcon v-if="!loading" name="arrow_forward" class="text-base" />
         </BaseButton>
 
         <div class="relative flex items-center justify-center my-space-xs">
