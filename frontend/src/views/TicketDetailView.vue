@@ -9,9 +9,16 @@ import { useTicketStore } from '@/stores/ticketStore'
 import DashboardLayout from '@/components/layout/DashboardLayout.vue'
 import MarkdownEditor from '@/components/tickets/MarkdownEditor.vue'
 import PrioritySelector from '@/components/tickets/PrioritySelector.vue'
+import TicketComments from '@/components/tickets/TicketComments.vue'
 import BaseAlert from '@/components/common/BaseAlert.vue'
 import BaseIcon from '@/components/common/BaseIcon.vue'
-import type { Ticket, TicketPriority, TicketStatus } from '@/types/ticket'
+import type {
+  CreateCommentPayload,
+  Ticket,
+  TicketComment,
+  TicketPriority,
+  TicketStatus,
+} from '@/types/ticket'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -27,6 +34,17 @@ const updating = ref(false)
 const error = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 const actionSuccess = ref<string | null>(null)
+
+const comments = ref<TicketComment[]>([])
+const commentsTotal = ref(0)
+const commentsPage = ref(1)
+const commentsTotalPages = ref(1)
+const commentsSort = ref<'oldest' | 'newest'>('oldest')
+const commentsLoading = ref(false)
+const commentsSubmitting = ref(false)
+const commentsError = ref<string | null>(null)
+const commentSubmitError = ref<string | null>(null)
+const commentsRef = ref<InstanceType<typeof TicketComments> | null>(null)
 
 const isAdmin = computed(() => user.value?.role === 'admin')
 const canEditPriority = computed(
@@ -156,12 +174,69 @@ onMounted(async () => {
     const loaded = await ticketService.getById(id)
     ticket.value = loaded
     selectedAssigneeId.value = loaded.assignee_id ?? ''
+    await fetchComments(id, 1, false)
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'Failed to load ticket details.'
   } finally {
     loading.value = false
   }
 })
+
+async function fetchComments(ticketId: string, page = 1, append = false) {
+  commentsLoading.value = true
+  commentsError.value = null
+
+  try {
+    const res = await ticketService.getComments(ticketId, {
+      sort: commentsSort.value,
+      page,
+      limit: 20,
+    })
+    const items = res.items ?? []
+    comments.value = append ? [...comments.value, ...items] : items
+    commentsTotal.value = res.total
+    commentsPage.value = res.page
+    commentsTotalPages.value = Math.max(1, res.total_pages)
+  } catch (err) {
+    commentsError.value = err instanceof ApiError ? err.message : 'Failed to load comments.'
+  } finally {
+    commentsLoading.value = false
+  }
+}
+
+async function handleCommentSortChange(nextSort: 'oldest' | 'newest') {
+  if (!ticket.value || commentsSort.value === nextSort) return
+  commentsSort.value = nextSort
+  await fetchComments(ticket.value.id, 1, false)
+}
+
+async function handleLoadMoreComments() {
+  if (!ticket.value || commentsPage.value >= commentsTotalPages.value) return
+  await fetchComments(ticket.value.id, commentsPage.value + 1, true)
+}
+
+async function handleCommentSubmit(payload: CreateCommentPayload) {
+  if (!ticket.value) return
+  commentsSubmitting.value = true
+  commentSubmitError.value = null
+
+  try {
+    const created = await ticketService.createComment(ticket.value.id, payload)
+    if (commentsSort.value === 'newest') {
+      comments.value = [created, ...comments.value]
+    } else if (commentsPage.value >= commentsTotalPages.value) {
+      comments.value = [...comments.value, created]
+    } else {
+      await fetchComments(ticket.value.id, 1, false)
+    }
+    commentsTotal.value += 1
+    commentsRef.value?.resetComposer()
+  } catch (err) {
+    commentSubmitError.value = err instanceof ApiError ? err.message : 'Failed to post comment.'
+  } finally {
+    commentsSubmitting.value = false
+  }
+}
 
 async function handleAssign() {
   if (!ticket.value || !isAdmin.value) return
@@ -445,6 +520,26 @@ async function handleStatusChange(nextStatus: TicketStatus) {
           </div>
         </div>
       </form>
+
+      <!-- PR-Style Ticket Comments Below Detail Ticket -->
+      <TicketComments
+        v-if="ticket"
+        ref="commentsRef"
+        :comments="comments"
+        :total="commentsTotal"
+        :loading="commentsLoading"
+        :submitting="commentsSubmitting"
+        :error="commentsError"
+        :submit-error="commentSubmitError"
+        :sort="commentsSort"
+        :has-more="comments.length < commentsTotal"
+        :requester-id="ticket.requester_id"
+        :user-map="userMap"
+        :current-user="user"
+        @submit="handleCommentSubmit"
+        @update:sort="handleCommentSortChange"
+        @load-more="handleLoadMoreComments"
+      />
     </div>
   </DashboardLayout>
 </template>

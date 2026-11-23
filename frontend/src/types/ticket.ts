@@ -48,3 +48,31 @@ export interface PatchTicketPayload {
   status?: TicketStatus
   assignee_id?: string | null
 }
+
+export interface TicketComment {
+  id: string
+  ticket_id: string
+  author_id: string
+  body: string
+  is_internal: boolean
+  created_at: string
+}
+
+export interface CommentListResult {
+  items: TicketComment[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+export interface CommentFilter {
+  sort?: 'newest' | 'oldest'
+  page?: number
+  limit?: number
+}
+
+export interface CreateCommentPayload {
+  body: string
+  is_internal?: boolean
+}
