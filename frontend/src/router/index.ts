@@ -4,6 +4,7 @@ import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import TicketsView from '@/views/TicketsView.vue'
 import CreateTicketView from '@/views/CreateTicketView.vue'
+import TicketDetailView from '@/views/TicketDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,6 +24,12 @@ const router = createRouter({
       name: 'tickets-new',
       component: CreateTicketView,
       meta: { hideNavbar: true, requiresAuth: true, requesterOnly: true },
+    },
+    {
+      path: '/tickets/:id',
+      name: 'ticket-detail',
+      component: TicketDetailView,
+      meta: { hideNavbar: true, requiresAuth: true },
     },
     {
       path: '/login',

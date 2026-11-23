@@ -3,9 +3,12 @@ import type { TicketPriority } from '@/types/ticket'
 
 interface Props {
   modelValue: TicketPriority
+  disabled?: boolean
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  disabled: false,
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: TicketPriority]
@@ -42,21 +45,31 @@ const options: {
     inactiveClass: 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container',
   },
 ]
+
+function selectPriority(value: TicketPriority) {
+  if (props.disabled) return
+  emit('update:modelValue', value)
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-space-sm">
     <span class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1">
-      Priority <span class="text-error">*</span>
+      Priority <span v-if="!disabled" class="text-error">*</span>
     </span>
     <div class="grid grid-cols-2 gap-2">
       <button
         v-for="opt in options"
         :key="opt.value"
         type="button"
-        class="px-3 py-2 rounded-lg font-label-md text-label-md transition-all cursor-pointer text-center"
-        :class="modelValue === opt.value ? opt.activeClass : opt.inactiveClass"
-        @click="emit('update:modelValue', opt.value)"
+        :disabled="disabled"
+        class="px-3 py-2 rounded-lg font-label-md text-label-md transition-all text-center disabled:cursor-not-allowed"
+        :class="[
+          modelValue === opt.value ? opt.activeClass : opt.inactiveClass,
+          disabled && modelValue !== opt.value ? 'opacity-50' : '',
+          !disabled ? 'cursor-pointer' : '',
+        ]"
+        @click="selectPriority(opt.value)"
       >
         {{ opt.label }}
       </button>

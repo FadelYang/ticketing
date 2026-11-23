@@ -42,3 +42,9 @@ export interface CreateTicketPayload {
   assignee_id?: string | null
   deadline_at: string
 }
+
+export interface PatchTicketPayload {
+  priority?: TicketPriority
+  status?: TicketStatus
+  assignee_id?: string | null
+}

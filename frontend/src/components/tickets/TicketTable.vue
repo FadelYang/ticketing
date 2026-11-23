@@ -178,11 +178,12 @@ function formatDeadline(iso: string): string {
             <td class="py-2 px-4 text-right">
               <button
                 type="button"
-                title="Quick View"
-                class="p-0.5 rounded hover:bg-surface-container-high text-outline hover:text-on-surface transition-colors cursor-pointer"
+                title="View ticket details"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-primary font-label-sm text-label-sm transition-colors cursor-pointer"
                 @click.stop="emit('select', ticket)"
               >
-                <BaseIcon name="chevron_right" class="text-[18px]" />
+                <span>Detail</span>
+                <BaseIcon name="chevron_right" class="text-[16px]" />
               </button>
             </td>
           </tr>

@@ -59,8 +59,8 @@ onMounted(() => {
   ticketStore.fetchTickets(1)
 })
 
-function handleSelectTicket(_ticket: Ticket) {
-  // Ticket detail view will be wired in the next step
+function handleSelectTicket(ticket: Ticket) {
+  router.push({ name: 'ticket-detail', params: { id: ticket.id } })
 }
 
 function handleNewTicket() {

@@ -6,6 +6,7 @@ interface Props {
   placeholder?: string
   rows?: number
   required?: boolean
+  disabled?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -13,6 +14,7 @@ withDefaults(defineProps<Props>(), {
   placeholder: 'Describe the issue, steps to reproduce, and any relevant logs...',
   rows: 8,
   required: false,
+  disabled: false,
 })
 
 const emit = defineEmits<{
@@ -28,7 +30,7 @@ const emit = defineEmits<{
         class="font-label-md text-label-md text-on-surface font-semibold flex items-center gap-1"
       >
         <span>{{ label }}</span>
-        <span v-if="required" class="text-error">*</span>
+        <span v-if="required && !disabled" class="text-error">*</span>
       </label>
     </div>
 
@@ -38,7 +40,8 @@ const emit = defineEmits<{
       :rows="rows"
       :placeholder="placeholder"
       :required="required"
-      class="w-full p-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all resize-y"
+      :disabled="disabled"
+      class="w-full p-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all resize-y disabled:opacity-80 disabled:cursor-not-allowed"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
   </div>

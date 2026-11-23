@@ -1,6 +1,12 @@
 import { apiRequest } from '@/services/api'
 import type { AuthUser } from '@/types/auth'
-import type { CreateTicketPayload, Ticket, TicketFilter, TicketListResult } from '@/types/ticket'
+import type {
+  CreateTicketPayload,
+  PatchTicketPayload,
+  Ticket,
+  TicketFilter,
+  TicketListResult,
+} from '@/types/ticket'
 
 export const ticketService = {
   list(filter: TicketFilter = {}): Promise<TicketListResult> {
@@ -26,6 +32,13 @@ export const ticketService = {
   create(payload: CreateTicketPayload): Promise<Ticket> {
     return apiRequest<Ticket>('/tickets/', {
       method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  patch(id: string, payload: PatchTicketPayload): Promise<Ticket> {
+    return apiRequest<Ticket>(`/tickets/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(payload),
     })
   },
