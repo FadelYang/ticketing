@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import { attachmentService } from '@/services/attachmentService'
 import { useAuthStore } from '@/stores/authStore'
 import { useTicketStore } from '@/stores/ticketStore'
 import DashboardLayout from '@/components/layout/DashboardLayout.vue'
@@ -30,6 +31,46 @@ function formatLocalDateTimeInput(date: Date): string {
 }
 
 const minDeadlineLocal = ref(formatLocalDateTimeInput(new Date()))
+
+interface PendingImage {
+  file: File
+  previewUrl: string
+}
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const pendingImages = ref<PendingImage[]>([])
+const previewImageUrl = ref<string | null>(null)
+
+function handleFilesSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  const next = [...pendingImages.value]
+  for (const file of Array.from(input.files)) {
+    if (!file.type.startsWith('image/')) continue
+    if (next.length >= 5) break
+    next.push({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    })
+  }
+  pendingImages.value = next
+  input.value = ''
+}
+
+function removePendingImage(index: number) {
+  const target = pendingImages.value[index]
+  if (target) {
+    URL.revokeObjectURL(target.previewUrl)
+  }
+  pendingImages.value = pendingImages.value.filter((_, idx) => idx !== index)
+}
+
+onUnmounted(() => {
+  for (const item of pendingImages.value) {
+    URL.revokeObjectURL(item.previewUrl)
+  }
+})
 
 const categories = [
   'Infrastructure',
@@ -70,6 +111,17 @@ async function handleSubmit() {
   })
 
   if (created) {
+    if (pendingImages.value.length > 0) {
+      try {
+        await attachmentService.upload(
+          'ticket',
+          created.id,
+          pendingImages.value.map((item) => item.file),
+        )
+      } catch {
+        // Ticket was already created; navigate to detail view even if attachment upload fails
+      }
+    }
     await router.push('/tickets')
   }
 }
@@ -147,19 +199,92 @@ async function handleSubmit() {
             </div>
 
             <!-- Supporting Artifacts Block -->
-            <div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex items-center justify-between">
-              <div class="flex items-center gap-space-sm text-on-surface">
-                <BaseIcon name="attach_file" class="text-primary text-[20px]" />
-                <span class="font-label-md text-label-md font-semibold">Supporting Artifacts</span>
+            <div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-space-sm text-on-surface">
+                  <BaseIcon name="attach_file" class="text-primary text-[20px]" />
+                  <div>
+                    <span class="font-label-md text-label-md font-semibold">Supporting Artifacts</span>
+                    <p class="font-body-sm text-body-sm text-outline">
+                      Attach up to 5 images (PNG, JPG, WebP, GIF, max 5 MB each)
+                    </p>
+                  </div>
+                </div>
+                <input
+                  ref="fileInputRef"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  multiple
+                  class="hidden"
+                  @change="handleFilesSelected"
+                />
+                <button
+                  type="button"
+                  :disabled="pendingImages.length >= 5"
+                  class="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  @click="fileInputRef?.click()"
+                >
+                  <BaseIcon name="upload" class="text-[18px]" />
+                  <span>Upload Images</span>
+                </button>
               </div>
-              <button
-                type="button"
-                class="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <BaseIcon name="upload" class="text-[18px]" />
-                <span>Upload File</span>
-              </button>
+
+              <!-- Live Image Previews -->
+              <div v-if="pendingImages.length > 0" class="flex flex-wrap gap-space-sm">
+                <div
+                  v-for="(item, idx) in pendingImages"
+                  :key="item.previewUrl"
+                  class="relative w-28 h-24 rounded-lg border border-outline-variant/60 bg-surface-container-low overflow-hidden group"
+                >
+                  <img
+                    :src="item.previewUrl"
+                    :alt="item.file.name"
+                    class="w-full h-full object-cover cursor-pointer"
+                    @click="previewImageUrl = item.previewUrl"
+                  />
+                  <button
+                    type="button"
+                    class="absolute top-1 right-1 w-6 h-6 rounded-full bg-on-surface/75 text-surface flex items-center justify-center hover:bg-error transition-colors cursor-pointer"
+                    aria-label="Remove image"
+                    @click="removePendingImage(idx)"
+                  >
+                    <BaseIcon name="close" class="text-[14px]" />
+                  </button>
+                  <div
+                    class="absolute inset-x-0 bottom-0 px-1.5 py-0.5 bg-on-surface/70 text-surface text-[10px] truncate pointer-events-none"
+                  >
+                    {{ item.file.name }}
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <!-- Live Lightbox Preview Modal -->
+            <Teleport to="body">
+              <div
+                v-if="previewImageUrl"
+                class="fixed inset-0 z-[70] flex items-center justify-center bg-on-surface/80 backdrop-blur-xs p-space-lg"
+                role="dialog"
+                aria-modal="true"
+                @click.self="previewImageUrl = null"
+              >
+                <div class="relative max-w-3xl max-h-[88vh] rounded-xl bg-surface-container-lowest p-space-sm shadow-2xl">
+                  <button
+                    type="button"
+                    class="absolute top-3 right-3 w-8 h-8 rounded-full bg-on-surface/75 text-surface flex items-center justify-center hover:bg-on-surface cursor-pointer"
+                    aria-label="Close preview"
+                    @click="previewImageUrl = null"
+                  >
+                    <BaseIcon name="close" class="text-[18px]" />
+                  </button>
+                  <img
+                    :src="previewImageUrl"
+                    alt="Attachment preview"
+                    class="max-h-[82vh] max-w-full object-contain rounded-lg"
+                  />
+                </div>
+              </div>
+            </Teleport>
           </div>
 
           <!-- Right Column (Categorization, SLA, Assignment) - 4 cols -->

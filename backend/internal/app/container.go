@@ -3,12 +3,14 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"monorepo/backend/internal/config"
 	"monorepo/backend/internal/database"
+	"monorepo/backend/internal/module/attachment"
 	"monorepo/backend/internal/module/auth"
 	"monorepo/backend/internal/module/comment"
 	"monorepo/backend/internal/module/example"
@@ -16,6 +18,7 @@ import (
 	"monorepo/backend/internal/module/ticket"
 	"monorepo/backend/internal/module/user"
 	"monorepo/backend/internal/router"
+	"monorepo/backend/internal/shared/storage"
 	"monorepo/backend/internal/shared/ws"
 )
 
@@ -28,8 +31,9 @@ type Container struct {
 	Example *example.Module
 	User    *user.Module
 	Auth    *auth.Module
-	Ticket  *ticket.Module
-	Comment *comment.Module
+	Ticket     *ticket.Module
+	Comment    *comment.Module
+	Attachment *attachment.Module
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -59,6 +63,29 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	wsHub := ws.NewHub(cfg.JWTSecret)
 	ticketMod.SetNotifier(ticketNotifierAdapter{hub: wsHub})
 
+	minioStore, err := storage.NewMinioStorage(
+		cfg.MinioEndpoint,
+		cfg.MinioAccessKey,
+		cfg.MinioSecretKey,
+		cfg.MinioBucket,
+		cfg.MinioUseSSL,
+	)
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("init minio storage: %w", err)
+	}
+	if err := minioStore.EnsureBucket(ctx); err != nil {
+		log.Printf("warning: minio bucket check failed: %v", err)
+	}
+
+	attachmentMod := attachment.NewModule(
+		pool,
+		minioStore,
+		ticketMod.Usecase,
+		commentMod.Usecase,
+		cfg.JWTSecret,
+	)
+
 	// If a new module needs another module's usecase, pass it directly:
 	// orderMod := order.NewModule(pool, exampleMod.Usecase)
 
@@ -70,19 +97,21 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		authMod,
 		ticketMod,
 		commentMod,
+		attachmentMod,
 		wsHub,
 	)
 
 	return &Container{
-		Config:  cfg,
-		DB:      pool,
-		Fiber:   fiberApp,
-		Health:  healthMod,
-		Example: exampleMod,
-		User:    userMod,
-		Auth:    authMod,
-		Ticket:  ticketMod,
-		Comment: commentMod,
+		Config:     cfg,
+		DB:         pool,
+		Fiber:      fiberApp,
+		Health:     healthMod,
+		Example:    exampleMod,
+		User:       userMod,
+		Auth:       authMod,
+		Ticket:     ticketMod,
+		Comment:    commentMod,
+		Attachment: attachmentMod,
 	}, nil
 }
 

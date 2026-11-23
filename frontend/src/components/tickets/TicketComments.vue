@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import BaseAlert from '@/components/common/BaseAlert.vue'
 import BaseIcon from '@/components/common/BaseIcon.vue'
+import AttachmentGallery from '@/components/tickets/AttachmentGallery.vue'
 import type { AuthUser } from '@/types/auth'
+import type { Attachment } from '@/types/attachment'
 import type { CreateCommentPayload, TicketComment } from '@/types/ticket'
 
 interface Props {
@@ -18,14 +20,16 @@ interface Props {
   userMap: Map<string, AuthUser>
   currentUser: AuthUser | null
   draft?: string
+  attachmentsByComment?: Record<string, Attachment[]>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   draft: '',
+  attachmentsByComment: () => ({}),
 })
 
 const emit = defineEmits<{
-  submit: [payload: CreateCommentPayload]
+  submit: [payload: CreateCommentPayload, files: File[]]
   'update:sort': [sort: 'oldest' | 'newest']
   'update:draft': [value: string]
   'load-more': []
@@ -35,6 +39,15 @@ const internalDraft = ref('')
 const isInternal = ref(false)
 const composerTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const composerContainerRef = ref<HTMLDivElement | null>(null)
+const commentFileInputRef = ref<HTMLInputElement | null>(null)
+
+interface PendingImage {
+  file: File
+  previewUrl: string
+}
+
+const pendingImages = ref<PendingImage[]>([])
+const previewImageUrl = ref<string | null>(null)
 
 const draftBody = computed({
   get: () => (props.draft !== undefined ? props.draft : internalDraft.value),
@@ -100,20 +113,59 @@ function formatTimestamp(iso: string): string {
   }).format(date)
 }
 
+function handleCommentFilesSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+
+  const next = [...pendingImages.value]
+  for (const file of Array.from(input.files)) {
+    if (!file.type.startsWith('image/')) continue
+    if (next.length >= 5) break
+    next.push({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    })
+  }
+  pendingImages.value = next
+  input.value = ''
+}
+
+function removePendingImage(index: number) {
+  const target = pendingImages.value[index]
+  if (target) {
+    URL.revokeObjectURL(target.previewUrl)
+  }
+  pendingImages.value = pendingImages.value.filter((_, idx) => idx !== index)
+}
+
 function handleSubmit() {
   const body = draftBody.value.trim()
   if (!body || props.submitting) return
 
-  emit('submit', {
-    body,
-    is_internal: canCreateInternal.value ? isInternal.value : false,
-  })
+  emit(
+    'submit',
+    {
+      body,
+      is_internal: canCreateInternal.value ? isInternal.value : false,
+    },
+    pendingImages.value.map((item) => item.file),
+  )
 }
 
 function resetComposer() {
   draftBody.value = ''
   isInternal.value = false
+  for (const item of pendingImages.value) {
+    URL.revokeObjectURL(item.previewUrl)
+  }
+  pendingImages.value = []
 }
+
+onUnmounted(() => {
+  for (const item of pendingImages.value) {
+    URL.revokeObjectURL(item.previewUrl)
+  }
+})
 
 function focusComposer() {
   composerContainerRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -267,6 +319,10 @@ defineExpose({ resetComposer, focusComposer })
           <!-- PR Comment Body -->
           <div class="p-space-lg text-body-md font-body-md text-on-surface whitespace-pre-wrap break-words leading-relaxed">
             {{ comment.body }}
+            <AttachmentGallery
+              v-if="attachmentsByComment[comment.id]?.length"
+              :attachments="attachmentsByComment[comment.id]"
+            />
           </div>
         </div>
       </article>
@@ -324,20 +380,63 @@ defineExpose({ resetComposer, focusComposer })
               class="w-full p-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all resize-y disabled:opacity-60"
             />
 
-            <div class="flex flex-wrap items-center justify-between gap-space-sm">
-              <label
-                v-if="canCreateInternal"
-                class="inline-flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant cursor-pointer select-none"
+            <!-- Live Comment Image Previews -->
+            <div v-if="pendingImages.length > 0" class="flex flex-wrap gap-space-sm">
+              <div
+                v-for="(item, idx) in pendingImages"
+                :key="item.previewUrl"
+                class="relative w-24 h-20 rounded-lg border border-outline-variant/60 bg-surface-container-low overflow-hidden"
               >
-                <input
-                  v-model="isInternal"
-                  type="checkbox"
-                  :disabled="submitting"
-                  class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+                <img
+                  :src="item.previewUrl"
+                  :alt="item.file.name"
+                  class="w-full h-full object-cover cursor-pointer"
+                  @click="previewImageUrl = item.previewUrl"
                 />
-                <span>Internal note (visible only to agents &amp; admins)</span>
-              </label>
-              <span v-else />
+                <button
+                  type="button"
+                  class="absolute top-1 right-1 w-5 h-5 rounded-full bg-on-surface/75 text-surface flex items-center justify-center hover:bg-error transition-colors cursor-pointer"
+                  aria-label="Remove image"
+                  @click="removePendingImage(idx)"
+                >
+                  <BaseIcon name="close" class="text-[12px]" />
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-space-sm">
+              <div class="flex flex-wrap items-center gap-space-md">
+                <input
+                  ref="commentFileInputRef"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  multiple
+                  class="hidden"
+                  @change="handleCommentFilesSelected"
+                />
+                <button
+                  type="button"
+                  :disabled="submitting || pendingImages.length >= 5"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                  @click="commentFileInputRef?.click()"
+                >
+                  <BaseIcon name="add_photo_alternate" class="text-[16px]" />
+                  <span>Attach images</span>
+                </button>
+
+                <label
+                  v-if="canCreateInternal"
+                  class="inline-flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant cursor-pointer select-none"
+                >
+                  <input
+                    v-model="isInternal"
+                    type="checkbox"
+                    :disabled="submitting"
+                    class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <span>Internal note (visible only to agents &amp; admins)</span>
+                </label>
+              </div>
 
               <button
                 type="submit"
@@ -357,5 +456,32 @@ defineExpose({ resetComposer, focusComposer })
         </form>
       </div>
     </div>
+
+    <!-- Live Lightbox Preview Modal for Draft Comment Images -->
+    <Teleport to="body">
+      <div
+        v-if="previewImageUrl"
+        class="fixed inset-0 z-[70] flex items-center justify-center bg-on-surface/80 backdrop-blur-xs p-space-lg"
+        role="dialog"
+        aria-modal="true"
+        @click.self="previewImageUrl = null"
+      >
+        <div class="relative max-w-3xl max-h-[88vh] rounded-xl bg-surface-container-lowest p-space-sm shadow-2xl">
+          <button
+            type="button"
+            class="absolute top-3 right-3 w-8 h-8 rounded-full bg-on-surface/75 text-surface flex items-center justify-center hover:bg-on-surface cursor-pointer"
+            aria-label="Close preview"
+            @click="previewImageUrl = null"
+          >
+            <BaseIcon name="close" class="text-[18px]" />
+          </button>
+          <img
+            :src="previewImageUrl"
+            alt="Comment attachment preview"
+            class="max-h-[82vh] max-w-full object-contain rounded-lg"
+          />
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>

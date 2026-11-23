@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ApiError } from '@/services/api'
+import { attachmentService } from '@/services/attachmentService'
 import { ticketService } from '@/services/ticketService'
 import { useTicketSocket } from '@/composables/useTicketSocket'
 import { useAuthStore } from '@/stores/authStore'
@@ -11,8 +12,10 @@ import DashboardLayout from '@/components/layout/DashboardLayout.vue'
 import MarkdownEditor from '@/components/tickets/MarkdownEditor.vue'
 import PrioritySelector from '@/components/tickets/PrioritySelector.vue'
 import TicketComments from '@/components/tickets/TicketComments.vue'
+import AttachmentGallery from '@/components/tickets/AttachmentGallery.vue'
 import BaseAlert from '@/components/common/BaseAlert.vue'
 import BaseIcon from '@/components/common/BaseIcon.vue'
+import type { Attachment } from '@/types/attachment'
 import type {
   CreateCommentPayload,
   Ticket,
@@ -57,6 +60,8 @@ const commentSubmitError = ref<string | null>(null)
 const commentsRef = ref<InstanceType<typeof TicketComments> | null>(null)
 
 const commentDraft = ref('')
+const ticketAttachments = ref<Attachment[]>([])
+const commentAttachmentsByCommentId = ref<Record<string, Attachment[]>>({})
 
 const isAdmin = computed(() => user.value?.role === 'admin')
 const canEditPriority = computed(
@@ -186,13 +191,39 @@ onMounted(async () => {
     const loaded = await ticketService.getById(id)
     ticket.value = loaded
     selectedAssigneeId.value = loaded.assignee_id ?? ''
-    await fetchComments(id, 1, false)
+    await Promise.all([fetchTicketAttachments(id), fetchComments(id, 1, false)])
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'Failed to load ticket details.'
   } finally {
     loading.value = false
   }
 })
+
+async function fetchTicketAttachments(ticketId: string) {
+  try {
+    ticketAttachments.value = await attachmentService.list('ticket', [ticketId])
+  } catch {
+    ticketAttachments.value = []
+  }
+}
+
+async function fetchCommentAttachments(commentIds: string[]) {
+  if (commentIds.length === 0) return
+  try {
+    const items = await attachmentService.list('comment', commentIds)
+    const grouped: Record<string, Attachment[]> = { ...commentAttachmentsByCommentId.value }
+    for (const id of commentIds) {
+      grouped[id] = []
+    }
+    for (const att of items) {
+      if (!grouped[att.target_id]) grouped[att.target_id] = []
+      grouped[att.target_id].push(att)
+    }
+    commentAttachmentsByCommentId.value = grouped
+  } catch {
+    // Non-blocking
+  }
+}
 
 async function fetchComments(ticketId: string, page = 1, append = false) {
   commentsLoading.value = true
@@ -209,6 +240,7 @@ async function fetchComments(ticketId: string, page = 1, append = false) {
     commentsTotal.value = res.total
     commentsPage.value = res.page
     commentsTotalPages.value = Math.max(1, res.total_pages)
+    await fetchCommentAttachments(items.map((item) => item.id))
   } catch (err) {
     commentsError.value = err instanceof ApiError ? err.message : 'Failed to load comments.'
   } finally {
@@ -227,13 +259,20 @@ async function handleLoadMoreComments() {
   await fetchComments(ticket.value.id, commentsPage.value + 1, true)
 }
 
-async function handleCommentSubmit(payload: CreateCommentPayload) {
+async function handleCommentSubmit(payload: CreateCommentPayload, files: File[] = []) {
   if (!ticket.value) return
   commentsSubmitting.value = true
   commentSubmitError.value = null
 
   try {
     const created = await ticketService.createComment(ticket.value.id, payload)
+    if (files.length > 0) {
+      const uploaded = await attachmentService.upload('comment', created.id, files)
+      commentAttachmentsByCommentId.value = {
+        ...commentAttachmentsByCommentId.value,
+        [created.id]: uploaded,
+      }
+    }
     if (commentsSort.value === 'newest') {
       comments.value = [created, ...comments.value]
     } else if (commentsPage.value >= commentsTotalPages.value) {
@@ -416,6 +455,14 @@ async function handleStatusChange(nextStatus: TicketStatus) {
 
               <!-- Description & Steps -->
               <MarkdownEditor id="detail-desc" :model-value="ticket.description" disabled />
+
+              <!-- Ticket Attachments -->
+              <div v-if="ticketAttachments.length > 0" class="flex flex-col gap-space-xs pt-space-sm border-t border-outline-variant/40">
+                <span class="font-label-md text-label-md text-on-surface font-semibold">
+                  Attachments ({{ ticketAttachments.length }})
+                </span>
+                <AttachmentGallery :attachments="ticketAttachments" />
+              </div>
             </div>
           </div>
 
@@ -572,6 +619,7 @@ async function handleStatusChange(nextStatus: TicketStatus) {
         :requester-id="ticket.requester_id"
         :user-map="userMap"
         :current-user="user"
+        :attachments-by-comment="commentAttachmentsByCommentId"
         @submit="handleCommentSubmit"
         @update:sort="handleCommentSortChange"
         @load-more="handleLoadMoreComments"
