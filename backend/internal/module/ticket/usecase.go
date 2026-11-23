@@ -227,6 +227,17 @@ func validateStatusTransition(fromStatus, toStatus, actorID, actorRole, requeste
 			return fmt.Errorf("%w: cannot change status from resolved to %s", apperror.ErrValidation, toStatus)
 		}
 
+	case StatusClosed:
+		switch toStatus {
+		case StatusOpen:
+			if isTicketRequester {
+				return nil
+			}
+			return fmt.Errorf("%w: only requester can reopen a closed ticket", apperror.ErrForbidden)
+		default:
+			return fmt.Errorf("%w: cannot change status from closed to %s", apperror.ErrValidation, toStatus)
+		}
+
 	default:
 		return fmt.Errorf("%w: cannot change status from %s to %s", apperror.ErrValidation, fromStatus, toStatus)
 	}

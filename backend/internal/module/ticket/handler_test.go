@@ -462,8 +462,10 @@ func TestTicketHandler_StatusTransitionRules(t *testing.T) {
 		// resolved -> in_progress (disallowed)
 		{name: "resolved->in_progress disallowed", from: ticket.StatusResolved, assignee: &agent1, to: ticket.StatusInProgress, token: adminToken, wantStatus: http.StatusBadRequest},
 
-		// closed -> open (disallowed)
-		{name: "closed->open disallowed", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: req1Token, wantStatus: http.StatusBadRequest},
+		// closed -> open (only ticket requester)
+		{name: "closed->open by requester", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: req1Token, wantStatus: http.StatusOK},
+		{name: "closed->open by other requester forbidden", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: req2Token, wantStatus: http.StatusForbidden},
+		{name: "closed->open by admin forbidden", from: ticket.StatusClosed, assignee: &agent1, to: ticket.StatusOpen, token: adminToken, wantStatus: http.StatusForbidden},
 	}
 
 	for _, tc := range tests {
