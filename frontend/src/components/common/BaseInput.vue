@@ -87,7 +87,7 @@ function onInput(event: Event) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-space-xs">
+  <div class="flex flex-col gap-space-sm">
     <div v-if="label || $slots['header-right']" class="flex items-center justify-between">
       <label v-if="label" :for="id" class="font-label-md text-label-md text-on-surface font-semibold">
         {{ label }}

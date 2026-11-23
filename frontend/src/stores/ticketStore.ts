@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ApiError } from '@/services/api'
 import { ticketService } from '@/services/ticketService'
 import type { AuthUser } from '@/types/auth'
-import type { Ticket, TicketPriority, TicketStatus } from '@/types/ticket'
+import type { CreateTicketPayload, Ticket, TicketPriority, TicketStatus } from '@/types/ticket'
 
 export const useTicketStore = defineStore('tickets', () => {
   const tickets = ref<Ticket[]>([])
@@ -87,6 +87,24 @@ export const useTicketStore = defineStore('tickets', () => {
     }
   }
 
+  async function createTicket(payload: CreateTicketPayload): Promise<Ticket | null> {
+    loading.value = true
+    error.value = null
+    try {
+      const created = await ticketService.create(payload)
+      return created
+    } catch (err) {
+      error.value = err instanceof ApiError ? err.message : 'Failed to create ticket'
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function clearError() {
+    error.value = null
+  }
+
   function resetFilters() {
     filters.search = ''
     filters.status = 'all'
@@ -111,6 +129,8 @@ export const useTicketStore = defineStore('tickets', () => {
     statusCounts,
     fetchUsers,
     fetchTickets,
+    createTicket,
+    clearError,
     resetFilters,
   }
 })

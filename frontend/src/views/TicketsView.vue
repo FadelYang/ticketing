@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/authStore'
 import { useTicketStore } from '@/stores/ticketStore'
@@ -11,6 +12,7 @@ import BaseAlert from '@/components/common/BaseAlert.vue'
 import BaseIcon from '@/components/common/BaseIcon.vue'
 import type { Ticket } from '@/types/ticket'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
@@ -62,7 +64,7 @@ function handleSelectTicket(_ticket: Ticket) {
 }
 
 function handleNewTicket() {
-  // Create ticket modal/page will be wired in the next step
+  router.push('/tickets/new')
 }
 </script>
 

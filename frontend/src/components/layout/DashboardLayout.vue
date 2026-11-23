@@ -168,18 +168,6 @@ async function handleLogout() {
           </RouterLink>
         </nav>
       </div>
-
-      <div
-        class="p-space-sm rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center gap-space-sm"
-      >
-        <BaseIcon name="support_agent" class="text-secondary text-[20px]" />
-        <div class="flex flex-col">
-          <span class="font-label-md text-label-md font-semibold text-on-surface">
-            {{ roleLabel }}
-          </span>
-          <span class="font-body-sm text-body-sm text-outline">System Operational</span>
-        </div>
-      </div>
     </aside>
 
     <!-- Main Workspace -->

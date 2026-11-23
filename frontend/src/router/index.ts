@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import TicketsView from '@/views/TicketsView.vue'
+import CreateTicketView from '@/views/CreateTicketView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,6 +17,12 @@ const router = createRouter({
       name: 'tickets',
       component: TicketsView,
       meta: { hideNavbar: true, requiresAuth: true },
+    },
+    {
+      path: '/tickets/new',
+      name: 'tickets-new',
+      component: CreateTicketView,
+      meta: { hideNavbar: true, requiresAuth: true, requesterOnly: true },
     },
     {
       path: '/login',
@@ -37,6 +44,10 @@ router.beforeEach((to) => {
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  if (to.meta.requesterOnly && authStore.user?.role !== 'requester') {
+    return { name: 'tickets' }
   }
 
   if (to.meta.guestOnly && authStore.isAuthenticated) {

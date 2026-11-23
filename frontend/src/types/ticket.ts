@@ -39,5 +39,6 @@ export interface CreateTicketPayload {
   category: string
   priority: TicketPriority
   requester_id: string
+  assignee_id?: string | null
   deadline_at: string
 }
