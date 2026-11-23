@@ -75,6 +75,26 @@ To stop services (add `-v` to reset the database volume):
 docker compose down
 ```
 
+## Default Users for Testing
+
+The backend automatically seeds three default accounts (one per role) on startup:
+
+| Role      | Email                 | Password        |
+| --------- | --------------------- | --------------- |
+| Admin     | `admin@gmail.com`     | `Ticketing@123` |
+| Agent     | `agent@gamil.com`     | `Ticketing@123` |
+| Requester | `requester@gamil.com` | `Ticketing@123` |
+
+To also populate sample tickets and comments for testing:
+
+```bash
+# Inside Docker
+make docker-seed
+
+# Or locally
+make seed
+```
+
 ## Database Migrations (Makefile)
 
 Migrations use UTC timestamp filenames (`YYYYMMDDHHMMSS_<name>.up.sql` and `.down.sql`) tracked in the `schema_migrations` table.
