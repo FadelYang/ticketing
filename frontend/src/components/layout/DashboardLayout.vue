@@ -116,15 +116,6 @@ async function handleLogout() {
           </kbd>
         </div>
 
-        <button
-          type="button"
-          class="relative w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors flex items-center justify-center cursor-pointer"
-          title="Notifications"
-        >
-          <BaseIcon name="notifications" class="text-[20px]" />
-          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-        </button>
-
         <div class="h-5 w-px bg-outline-variant/40" />
 
         <div class="flex items-center gap-space-sm">
