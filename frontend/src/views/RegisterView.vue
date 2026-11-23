@@ -124,10 +124,11 @@ async function handleRegistration() {
           v-model="phonenumber"
           label="Phone Number"
           type="tel"
-          placeholder="+1 555 010 9999"
+          placeholder="085156273182"
           autocomplete="tel"
           leading-icon="call"
           surface="lowest"
+          numeric-only
           required
         >
           <template #header-right>
@@ -226,7 +227,7 @@ async function handleRegistration() {
         </span>
         <RouterLink
           to="/login"
-          class="ml-1.5 font-label-md text-label-md text-primary font-semibold hover:underline flex items-center space-x-0.5 focus:outline-none"
+          class="ml-1.5 font-label-md text-label-md text-primary font-semibold hover:underline flex items-center gap-1 focus:outline-none"
         >
           <span>Log in</span>
           <BaseIcon name="login" class="text-body-md" />

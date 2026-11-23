@@ -7,5 +7,5 @@ defineProps<Props>()
 </script>
 
 <template>
-  <span class="material-symbols-outlined select-none" aria-hidden="true">{{ name }}</span>
+  <span class="material-symbols-outlined leading-none select-none" aria-hidden="true">{{ name }}</span>
 </template>

@@ -16,6 +16,7 @@ interface Props {
   passwordToggle?: boolean
   monospace?: boolean
   surface?: 'low' | 'lowest'
+  numericOnly?: boolean
   error?: string
 }
 
@@ -31,6 +32,7 @@ const props = withDefaults(defineProps<Props>(), {
   passwordToggle: false,
   monospace: false,
   surface: 'low',
+  numericOnly: false,
   error: '',
 })
 
@@ -55,7 +57,7 @@ const inputClasses = computed(() => {
   const base =
     'w-full h-10 rounded-lg text-on-surface placeholder:text-outline/70 font-body-md text-body-md transition-all outline-none disabled:cursor-not-allowed disabled:opacity-60'
 
-  const paddingLeft = props.leadingIcon ? 'pl-9' : 'px-space-md'
+  const paddingLeft = props.leadingIcon ? 'pl-11' : 'px-space-md'
   const paddingRight = hasTrailingControl.value ? 'pr-10' : 'pr-3'
 
   const surfaceStyle =
@@ -72,7 +74,15 @@ const inputClasses = computed(() => {
 })
 
 function onInput(event: Event) {
-  emit('update:modelValue', (event.target as HTMLInputElement).value)
+  const target = event.target as HTMLInputElement
+  let value = target.value
+  if (props.numericOnly) {
+    value = value.replace(/\D/g, '')
+    if (target.value !== value) {
+      target.value = value
+    }
+  }
+  emit('update:modelValue', value)
 }
 </script>
 
@@ -100,6 +110,7 @@ function onInput(event: Event) {
         :autocomplete="autocomplete"
         :required="required"
         :disabled="disabled"
+        :inputmode="numericOnly ? 'numeric' : undefined"
         :class="inputClasses"
         @input="onInput"
       />
